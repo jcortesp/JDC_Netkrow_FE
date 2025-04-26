@@ -1,8 +1,10 @@
 // src/api/axiosClient.js
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
 const axiosClient = axios.create({
-  baseURL: '/api', // Suponiendo que usas un proxy para apuntar a http://localhost:8080/api
+  baseURL: API_BASE,
 });
 
 axiosClient.interceptors.request.use(
