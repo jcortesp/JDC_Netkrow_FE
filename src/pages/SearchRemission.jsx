@@ -1,3 +1,4 @@
+// src/components/SearchRemission.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
@@ -7,7 +8,10 @@ import {
   Button,
   MenuItem,
   Grid,
-  Stack
+  Stack,
+  Dialog,
+  DialogTitle,
+  DialogActions
 } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
@@ -20,6 +24,7 @@ export default function SearchRemission() {
   const [message, setMessage] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState('');
   const [originalHasGarantia, setOriginalHasGarantia] = useState(false);
+  const [openDropDialog, setOpenDropDialog] = useState(false);
 
   const formatMoney = val =>
     val == null
@@ -32,22 +37,19 @@ export default function SearchRemission() {
     try {
       const { data } = await axiosClient.get(`/remissions/${id}`);
       setRemissionData(data);
-
       if (!id.endsWith('-G')) {
         try {
           await axiosClient.get(`/remissions/${id}-G`);
           setOriginalHasGarantia(true);
-        } catch {
-          // no existe garantía aún
-        }
+        } catch {}
       }
     } catch (err) {
       setRemissionData(null);
-      if (err.response?.status === 404) {
-        setMessage('No se encontró la remisión');
-      } else {
-        setMessage('Error al comunicar con el servidor');
-      }
+      setMessage(
+        err.response?.status === 404
+          ? 'No se encontró la remisión'
+          : 'Error al comunicar con el servidor'
+      );
     }
   }, []);
 
@@ -70,6 +72,24 @@ export default function SearchRemission() {
       setMessage('Equipo entregado correctamente.');
     } catch {
       setMessage('Error al entregar equipo');
+    }
+  };
+
+  const confirmDrop = async (cobrarRevision) => {
+    setOpenDropDialog(false);
+    try {
+      const { data } = await axiosClient.put(
+        `/remissions/${remissionData.remissionId}/dar-baja`,
+        { cobrarRevision }
+      );
+      setRemissionData(data);
+      setMessage(
+        cobrarRevision
+          ? 'Remisión dada de baja con cobro de revisión.'
+          : 'Remisión dada de baja sin cobro.'
+      );
+    } catch (e) {
+      setMessage(e.response?.data || 'Error al dar de baja la remisión');
     }
   };
 
@@ -117,6 +137,7 @@ export default function SearchRemission() {
         <Typography variant="h5" align="center" gutterBottom>
           Entrega de equipo
         </Typography>
+
         <Box
           component="form"
           onSubmit={handleSearch}
@@ -157,22 +178,16 @@ export default function SearchRemission() {
               </Typography>
             </Box>
 
+            {/* Datos */}
             <Grid container spacing={1} sx={{ mt: 2 }}>
-              {/* ID */}
-              <Grid item xs={4}>
-                <strong>ID:</strong>
-              </Grid>
+              <Grid item xs={4}><strong>ID:</strong></Grid>
               <Grid item xs={8}>{remissionData.remissionId}</Grid>
 
-              {/* Fecha ingreso */}
-              <Grid item xs={4}>
-                <strong>Fecha ingreso:</strong>
-              </Grid>
+              <Grid item xs={4}><strong>Fecha ingreso:</strong></Grid>
               <Grid item xs={8}>
                 {new Date(remissionData.createdAt).toLocaleString()}
               </Grid>
 
-              {/* Campos para remisión ORIGINAL */}
               {!remissionData.remissionId.endsWith('-G') && (
                 <>
                   <Grid item xs={4}><strong>Total:</strong></Grid>
@@ -201,7 +216,6 @@ export default function SearchRemission() {
                 </>
               )}
 
-              {/* Campos para remisión GARANTÍA (-G) */}
               {remissionData.remissionId.endsWith('-G') && remissionData.fechaSalida && (
                 <>
                   <Grid item xs={4}><strong>Fecha salida:</strong></Grid>
@@ -212,11 +226,11 @@ export default function SearchRemission() {
               )}
             </Grid>
 
-            {/* Botones y selects */}
+            {/* Acciones */}
             <Stack spacing={2} sx={{ mt: 3 }}>
-              {/* Sacar equipo original */}
               {!remissionData.fechaSalida && !remissionData.remissionId.endsWith('-G') && (
                 <>
+                  {/* Sacar equipo */}
                   <TextField
                     select
                     label="Método de pago del saldo"
@@ -231,6 +245,15 @@ export default function SearchRemission() {
                   </TextField>
                   <Button variant="contained" onClick={handleDeliver}>
                     Sacar equipo
+                  </Button>
+
+                  {/* Dar de baja */}
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => setOpenDropDialog(true)}
+                  >
+                    Dar de baja
                   </Button>
                 </>
               )}
@@ -268,6 +291,19 @@ export default function SearchRemission() {
           </>
         )}
       </Container>
+
+      {/* Diálogo de tipo de baja */}
+      <Dialog
+        open={openDropDialog}
+        onClose={() => setOpenDropDialog(false)}
+      >
+        <DialogTitle>¿Cómo deseas dar de baja?</DialogTitle>
+        <DialogActions>
+          <Button onClick={() => confirmDrop(true)}>Cobrar revisión</Button>
+          <Button onClick={() => confirmDrop(false)}>Sin cobro</Button>
+          <Button onClick={() => setOpenDropDialog(false)}>Cancelar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
