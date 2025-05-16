@@ -7,9 +7,9 @@
     }
   ],
   "routes": [
-    // 1) primero las rewrites de la API:
+
     { "src": "/api/(.*)", "dest": "https://netkrow.onrender.com/api/$1" },
-    // 2) luego servir tus archivos estáticos
+   
     { "handle": "filesystem" },
     { "src": "/(.*)",     "dest": "/index.html" }
   ]
