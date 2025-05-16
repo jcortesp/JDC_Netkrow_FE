@@ -27,7 +27,6 @@ export default function SearchRemission() {
   const [deliveryMethod, setDeliveryMethod] = useState('');
   const [originalHasGarantia, setOriginalHasGarantia] = useState(false);
 
-  // Estados para “dar de baja”
   const [openDropDialog, setOpenDropDialog] = useState(false);
   const [openRevisionDialog, setOpenRevisionDialog] = useState(false);
   const [revisionValueInput, setRevisionValueInput] = useState('');
@@ -44,7 +43,6 @@ export default function SearchRemission() {
     try {
       const { data } = await axiosClient.get(`/remissions/${id}`);
       setRemissionData(data);
-      // comprueba si existe garantía
       if (!id.endsWith('-G')) {
         try {
           await axiosClient.get(`/remissions/${id}-G`);
@@ -269,7 +267,6 @@ export default function SearchRemission() {
                   Sacar garantía
                 </Button>
               )}
-
               {remissionData.remissionId.endsWith('-G') && (
                 <Button variant="contained" onClick={() => {
                   const originalId = remissionData.remissionId.replace(/-G$/, '');

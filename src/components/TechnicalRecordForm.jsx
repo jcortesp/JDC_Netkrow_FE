@@ -119,7 +119,7 @@ export default function TechnicalRecordForm({
           ))}
         </TextField>
 
-        {/* Pilas */}
+        {/* Pilas (añadida opción 'OK') */}
         <TextField
           select
           label="Pilas"
@@ -131,14 +131,22 @@ export default function TechnicalRecordForm({
           sx={borderStyle(form.pilas)}
           InputLabelProps={{ shrink: true }}
         >
-          {['Cambio', 'Recargable', 'Carbon', 'Adaptador OK', 'Adaptador dañado', 'N/A'].map(v => (
+          {[
+            'OK',
+            'Cambio',
+            'Recargable',
+            'Carbon',
+            'Adaptador OK',
+            'Adaptador dañado',
+            'N/A'
+          ].map(v => (
             <MenuItem key={v} value={v}>
               {v}
             </MenuItem>
           ))}
         </TextField>
 
-        {/* revisión, mantenimiento, limpieza, calibración */}
+        {/* Revisión, mantenimiento, limpieza, calibración */}
         {['revision','mantenimiento','limpieza','calibracion'].map(field => (
           <TextField
             key={field}
