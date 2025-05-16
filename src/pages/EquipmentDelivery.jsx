@@ -1,12 +1,16 @@
 // src/pages/EquipmentDelivery.jsx
+
 import React, { useState } from 'react';
 import {
-  Container,
   Box,
+  Container,
   Typography,
   TextField,
   Button,
-  MenuItem
+  MenuItem,
+  Alert,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import axiosClient from '../api/axiosClient';
 
@@ -14,7 +18,9 @@ export default function EquipmentDelivery() {
   const [remissionId, setRemissionId] = useState('');
   const [remissionData, setRemissionData] = useState(null);
   const [message, setMessage] = useState('');
+  const [severity, setSeverity] = useState('success');
   const [deliveryMethod, setDeliveryMethod] = useState('');
+  const [isGarantia, setIsGarantia] = useState(false);
 
   const formatMoney = (value) => {
     if (value == null) return '';
@@ -26,57 +32,78 @@ export default function EquipmentDelivery() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
+    setMessage('');
     try {
-      const response = await axiosClient.get(`/remissions/${remissionId}`);
-      setRemissionData(response.data);
-      setMessage('');
-    } catch {
+      const { data } = await axiosClient.get(`/remissions/${remissionId}`);
+      setRemissionData(data);
+    } catch (err) {
+      setSeverity('error');
+      setMessage(
+        err.response?.status === 404
+          ? 'No se encontró la remisión'
+          : 'Error al comunicar con el servidor'
+      );
       setRemissionData(null);
-      setMessage('No se encontró la remisión');
     }
   };
 
-  const handleDeliver = async () => {
+  const handleDeliverOrGarantia = async () => {
+    setMessage('');
     try {
-      const { data } = await axiosClient.put(
-        `/remissions/deliver/${remissionData.remissionId}`,
-        { metodoSaldo: deliveryMethod }
-      );
+      let data;
+      if (isGarantia) {
+        // Ingreso de garantía
+        ({ data } = await axiosClient.put(
+          `/remissions/${remissionData.remissionId}/garantia`
+        ));
+        setMessage('Garantía ingresada correctamente.');
+      } else {
+        // Entrega de equipo
+        ({ data } = await axiosClient.put(
+          `/remissions/deliver/${remissionData.remissionId}`,
+          { metodoSaldo: deliveryMethod }
+        ));
+        setMessage('Equipo entregado correctamente.');
+      }
+      setSeverity('success');
       setRemissionData(data);
-      setMessage('Equipo entregado correctamente.');
-    } catch {
-      setMessage('Error al entregar equipo');
+      // Si acabas de ingresar garantía, actualiza el ID en el input
+      if (isGarantia) {
+        setRemissionId(data.remissionId);
+      }
+    } catch (err) {
+      setSeverity('error');
+      const errMsg = err.response?.data?.message || '';
+      setMessage(
+        isGarantia
+          ? errMsg || 'Error al ingresar garantía.'
+          : errMsg || 'Error al entregar equipo.'
+      );
     }
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        backgroundImage: 'url("https://medicalmuneras.com/wp-content/uploads/2023/04/Imagen-1_auto_x2-scaled.jpg")',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        py: 4,
-        px: 2
-      }}
-    >
-      <Container
-        maxWidth="sm"
-        sx={{ backgroundColor: 'rgba(255,255,255,0.8)', p: 3, borderRadius: 2 }}
-      >
+    <Box sx={{ minHeight: '100vh', py: 4, background: '#f5f5f5' }}>
+      <Container maxWidth="sm" sx={{ bgcolor: '#fff', p: 4, borderRadius: 2 }}>
         <Typography variant="h5" align="center" gutterBottom>
-          Entrega de equipo
+          Entrega de equipo / Garantía
         </Typography>
+
+        {message && (
+          <Alert severity={severity} sx={{ mb: 2 }}>
+            {message}
+          </Alert>
+        )}
+
         <Box
           component="form"
           onSubmit={handleSearch}
-          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}
         >
           <TextField
             label="ID de Remisión"
             value={remissionId}
-            onChange={(e) => setRemissionId(e.target.value)}
+            onChange={e => setRemissionId(e.target.value)}
             fullWidth
             required
           />
@@ -85,76 +112,73 @@ export default function EquipmentDelivery() {
           </Button>
         </Box>
 
-        {message && (
-          <Typography
-            variant="body2"
-            color="error"
-            align="center"
-            sx={{ mt: 2 }}
-          >
-            {message}
-          </Typography>
-        )}
-
         {remissionData && (
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6">Detalles de la Remisión</Typography>
-            <Typography>ID: {remissionData.remissionId}</Typography>
-            <Typography>Total: {formatMoney(remissionData.totalValue)}</Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography><strong>ID:</strong> {remissionData.remissionId}</Typography>
             <Typography>
-              Fecha de Ingreso:{' '}
-              {new Date(remissionData.createdAt).toLocaleString()}
+              <strong>Total:</strong> {formatMoney(remissionData.totalValue)}
             </Typography>
             <Typography>
-              Abono: {formatMoney(remissionData.depositValue)}
+              <strong>Abono:</strong> {formatMoney(remissionData.depositValue)}
             </Typography>
             <Typography>
-              Método de abono:{' '}
-              {remissionData.metodoAbono || 'N/A'}
+              <strong>Método de abono:</strong> {remissionData.metodoAbono || 'N/A'}
             </Typography>
             <Typography
               sx={{
-                color: remissionData.fechaSalida ? 'green' : 'red',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                color: remissionData.fechaSalida ? 'green' : 'red'
               }}
             >
-              Saldo: {formatMoney(remissionData.saldo)}
+              <strong>Saldo:</strong> {formatMoney(remissionData.saldo)}
             </Typography>
 
-            {!remissionData.fechaSalida ? (
-              <>
-                <TextField
-                  select
-                  label="Método de pago del saldo"
-                  value={deliveryMethod}
-                  onChange={(e) => setDeliveryMethod(e.target.value)}
-                  fullWidth
-                  required
-                  sx={{ mt: 2 }}
-                >
-                  <MenuItem value="Efectivo">Efectivo</MenuItem>
-                  <MenuItem value="Tarjeta">Tarjeta</MenuItem>
-                  <MenuItem value="Transferencia">Transferencia</MenuItem>
-                </TextField>
-                <Button
-                  onClick={handleDeliver}
-                  variant="contained"
-                  fullWidth
-                  sx={{ mt: 2 }}
-                >
-                  Sacar equipo
-                </Button>
-              </>
-            ) : (
+            {remissionData.fechaSalida && (
               <>
                 <Typography>
-                  Método de pago del saldo:{' '}
-                  {remissionData.metodoSaldo}
+                  <strong>Método de pago del saldo:</strong> {remissionData.metodoSaldo}
                 </Typography>
                 <Typography>
-                  Fecha de Salida:{' '}
+                  <strong>Fecha de salida:</strong>{' '}
                   {new Date(remissionData.fechaSalida).toLocaleString()}
                 </Typography>
+              </>
+            )}
+
+            {!remissionData.fechaSalida && (
+              <>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={isGarantia}
+                      onChange={e => setIsGarantia(e.target.checked)}
+                    />
+                  }
+                  label="Ingresar como garantía"
+                />
+
+                {!isGarantia && (
+                  <TextField
+                    select
+                    label="Método de pago del saldo"
+                    value={deliveryMethod}
+                    onChange={e => setDeliveryMethod(e.target.value)}
+                    fullWidth
+                    required
+                  >
+                    <MenuItem value="Efectivo">Efectivo</MenuItem>
+                    <MenuItem value="Tarjeta">Tarjeta</MenuItem>
+                    <MenuItem value="Transferencia">Transferencia</MenuItem>
+                  </TextField>
+                )}
+
+                <Button
+                  variant="contained"
+                  onClick={handleDeliverOrGarantia}
+                  fullWidth
+                >
+                  {isGarantia ? 'Ingresar garantía' : 'Sacar equipo'}
+                </Button>
               </>
             )}
           </Box>

@@ -1,4 +1,3 @@
-// src/pages/Remisiones.jsx
 import React, { useState } from 'react';
 import {
   Container,
@@ -11,7 +10,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  Alert
 } from '@mui/material';
 import axiosClient from '../api/axiosClient';
 import { useNavigate } from 'react-router-dom';
@@ -26,10 +26,12 @@ export default function Remisiones() {
 
   const [formValues, setFormValues] = useState(initialForm);
   const [openModal, setOpenModal] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormValues({ ...formValues, [e.target.name]: e.target.value });
+    setErrorMsg('');
   };
 
   const handleSubmit = async (e) => {
@@ -38,18 +40,22 @@ export default function Remisiones() {
       await axiosClient.post('/remissions', formValues);
       setOpenModal(true);
     } catch (error) {
-      console.error(error);
-      alert(error.response?.data || 'Error al ingresar remisión');
+      // extraemos un string del objeto de error
+      const data = error.response?.data;
+      const msg = typeof data === 'string'
+        ? data
+        : data?.message || 'Error al ingresar remisión';
+      setErrorMsg(msg);
     }
   };
 
   const handleIngrInfoTecnica = () => {
     setOpenModal(false);
     navigate('/servicio-tecnico', { state: { remissionId: formValues.remissionId } });
+    setFormValues(initialForm);
   };
   const handleIngrDespues = () => {
     setOpenModal(false);
-    alert('Remisión ingresada, pendiente de información técnica.');
     setFormValues(initialForm);
   };
 
@@ -57,7 +63,8 @@ export default function Remisiones() {
     <Box
       sx={{
         minHeight: '100vh',
-        backgroundImage: 'url("https://medicalmuneras.com/wp-content/uploads/2023/04/Imagen-1_auto_x2-scaled.jpg")',
+        backgroundImage:
+          'url("https://medicalmuneras.com/wp-content/uploads/2023/04/Imagen-1_auto_x2-scaled.jpg")',
         backgroundSize: 'cover',
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center',
@@ -74,6 +81,13 @@ export default function Remisiones() {
         <Typography variant="h5" align="center" gutterBottom>
           Ingresar Remisión
         </Typography>
+
+        {errorMsg && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {errorMsg}
+          </Alert>
+        )}
+
         <Box
           component="form"
           onSubmit={handleSubmit}

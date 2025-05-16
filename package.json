@@ -15,7 +15,7 @@
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
-    "@mui/icons-material": "^6.4.3",
+    "@mui/icons-material": "^6.4.11",
     "@mui/material": "^6.4.3",
     "axios": "^1.7.9",
     "formik": "^2.4.6",

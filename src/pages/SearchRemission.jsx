@@ -1,4 +1,3 @@
-// src/components/SearchRemission.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
@@ -11,7 +10,10 @@ import {
   Stack,
   Dialog,
   DialogTitle,
-  DialogActions
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  InputAdornment
 } from '@mui/material';
 import { useLocation } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
@@ -24,7 +26,11 @@ export default function SearchRemission() {
   const [message, setMessage] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState('');
   const [originalHasGarantia, setOriginalHasGarantia] = useState(false);
+
+  // Estados para “dar de baja”
   const [openDropDialog, setOpenDropDialog] = useState(false);
+  const [openRevisionDialog, setOpenRevisionDialog] = useState(false);
+  const [revisionValueInput, setRevisionValueInput] = useState('');
 
   const formatMoney = val =>
     val == null
@@ -33,10 +39,12 @@ export default function SearchRemission() {
 
   const fetchById = useCallback(async (id) => {
     setMessage('');
+    setRemissionData(null);
     setOriginalHasGarantia(false);
     try {
       const { data } = await axiosClient.get(`/remissions/${id}`);
       setRemissionData(data);
+      // comprueba si existe garantía
       if (!id.endsWith('-G')) {
         try {
           await axiosClient.get(`/remissions/${id}-G`);
@@ -44,12 +52,12 @@ export default function SearchRemission() {
         } catch {}
       }
     } catch (err) {
-      setRemissionData(null);
-      setMessage(
-        err.response?.status === 404
-          ? 'No se encontró la remisión'
-          : 'Error al comunicar con el servidor'
-      );
+      const status = err.response?.status;
+      if (status === 400 || status === 404) {
+        setMessage('No se encontró la remisión');
+      } else {
+        setMessage('Error al comunicar con el servidor');
+      }
     }
   }, []);
 
@@ -75,12 +83,20 @@ export default function SearchRemission() {
     }
   };
 
-  const confirmDrop = async (cobrarRevision) => {
+  const handleSelectDrop = choice => {
     setOpenDropDialog(false);
+    if (choice) {
+      setOpenRevisionDialog(true);
+    } else {
+      performDrop(false, null);
+    }
+  };
+
+  const performDrop = async (cobrarRevision, revisionValue) => {
     try {
       const { data } = await axiosClient.put(
         `/remissions/${remissionData.remissionId}/dar-baja`,
-        { cobrarRevision }
+        { cobrarRevision, revisionValue }
       );
       setRemissionData(data);
       setMessage(
@@ -88,21 +104,32 @@ export default function SearchRemission() {
           ? 'Remisión dada de baja con cobro de revisión.'
           : 'Remisión dada de baja sin cobro.'
       );
-    } catch (e) {
-      setMessage(e.response?.data || 'Error al dar de baja la remisión');
+    } catch {
+      setMessage('Error al dar de baja la remisión');
     }
+  };
+
+  const handleConfirmRevision = () => {
+    const parsed = parseFloat(revisionValueInput.replace(',', '.'));
+    if (isNaN(parsed) || parsed < 0) {
+      setMessage('Valor de revisión inválido');
+      return;
+    }
+    setOpenRevisionDialog(false);
+    performDrop(true, parsed);
   };
 
   const handleGarantia = async () => {
     try {
-      await axiosClient.put(`/remissions/${remissionData.remissionId}/garantia`);
-      const idG = `${remissionData.remissionId}-G`;
-      setRemissionId(idG);
+      const { data } = await axiosClient.put(
+        `/remissions/${remissionData.remissionId}/garantia`
+      );
+      setRemissionId(data.remissionId);
       setOriginalHasGarantia(true);
-      await fetchById(idG);
+      await fetchById(data.remissionId);
       setMessage('');
-    } catch (e) {
-      setMessage(e.response?.data || 'Error al ingresar garantía');
+    } catch {
+      setMessage('Error al ingresar garantía');
     }
   };
 
@@ -119,30 +146,27 @@ export default function SearchRemission() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        backgroundImage:
-          'url("https://medicalmuneras.com/wp-content/uploads/2023/04/Imagen-1_auto_x2-scaled.jpg")',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        p: 4
-      }}
-    >
-      <Container
-        maxWidth="sm"
-        sx={{ backgroundColor: 'rgba(255,255,255,0.8)', p: 3, borderRadius: 2 }}
-      >
+    <Box sx={{
+      minHeight: '100vh',
+      backgroundImage:
+        'url("https://medicalmuneras.com/wp-content/uploads/2023/04/Imagen-1_auto_x2-scaled.jpg")',
+      backgroundSize: 'cover',
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'center',
+      p: 4
+    }}>
+      <Container maxWidth="sm" sx={{ backgroundColor: 'rgba(255,255,255,0.8)', p: 3, borderRadius: 2 }}>
         <Typography variant="h5" align="center" gutterBottom>
           Entrega de equipo
         </Typography>
 
-        <Box
-          component="form"
-          onSubmit={handleSearch}
-          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-        >
+        {message && (
+          <Typography color={message.startsWith('Error') ? 'error' : 'primary'} align="center" sx={{ mt: 2 }}>
+            {message}
+          </Typography>
+        )}
+
+        <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             label="ID de Remisión"
             value={remissionId}
@@ -155,62 +179,42 @@ export default function SearchRemission() {
           </Button>
         </Box>
 
-        {message && (
-          <Typography color="error" align="center" sx={{ mt: 2 }}>
-            {message}
-          </Typography>
-        )}
-
         {remissionData && (
           <>
-            {/* Estado */}
             <Box sx={{ textAlign: 'center', mt: 2 }}>
-              <Typography
-                sx={{
-                  fontWeight: 'bold',
-                  color: remissionData.fechaSalida ? 'green' : 'red',
-                  textTransform: 'uppercase'
-                }}
-              >
+              <Typography sx={{
+                fontWeight: 'bold',
+                color: remissionData.fechaSalida ? 'green' : 'red',
+                textTransform: 'uppercase'
+              }}>
                 {remissionData.remissionId.endsWith('-G')
                   ? (remissionData.fechaSalida ? 'GARANTÍA ENTREGADA' : 'GARANTÍA PENDIENTE')
                   : (remissionData.fechaSalida ? 'ENTREGADO' : 'PENDIENTE')}
               </Typography>
             </Box>
 
-            {/* Datos */}
             <Grid container spacing={1} sx={{ mt: 2 }}>
               <Grid item xs={4}><strong>ID:</strong></Grid>
               <Grid item xs={8}>{remissionData.remissionId}</Grid>
-
               <Grid item xs={4}><strong>Fecha ingreso:</strong></Grid>
-              <Grid item xs={8}>
-                {new Date(remissionData.createdAt).toLocaleString()}
-              </Grid>
+              <Grid item xs={8}>{new Date(remissionData.createdAt).toLocaleString()}</Grid>
 
               {!remissionData.remissionId.endsWith('-G') && (
                 <>
                   <Grid item xs={4}><strong>Total:</strong></Grid>
                   <Grid item xs={8}>{formatMoney(remissionData.totalValue)}</Grid>
-
                   <Grid item xs={4}><strong>Abono:</strong></Grid>
                   <Grid item xs={8}>{formatMoney(remissionData.depositValue)}</Grid>
-
                   <Grid item xs={4}><strong>Método abono:</strong></Grid>
                   <Grid item xs={8}>{remissionData.metodoAbono || 'N/A'}</Grid>
-
                   <Grid item xs={4}><strong>Saldo:</strong></Grid>
                   <Grid item xs={8}>{formatMoney(remissionData.saldo)}</Grid>
-
                   {remissionData.fechaSalida && (
                     <>
                       <Grid item xs={4}><strong>Método pago saldo:</strong></Grid>
                       <Grid item xs={8}>{remissionData.metodoSaldo}</Grid>
-
                       <Grid item xs={4}><strong>Fecha salida:</strong></Grid>
-                      <Grid item xs={8}>
-                        {new Date(remissionData.fechaSalida).toLocaleString()}
-                      </Grid>
+                      <Grid item xs={8}>{new Date(remissionData.fechaSalida).toLocaleString()}</Grid>
                     </>
                   )}
                 </>
@@ -219,18 +223,14 @@ export default function SearchRemission() {
               {remissionData.remissionId.endsWith('-G') && remissionData.fechaSalida && (
                 <>
                   <Grid item xs={4}><strong>Fecha salida:</strong></Grid>
-                  <Grid item xs={8}>
-                    {new Date(remissionData.fechaSalida).toLocaleString()}
-                  </Grid>
+                  <Grid item xs={8}>{new Date(remissionData.fechaSalida).toLocaleString()}</Grid>
                 </>
               )}
             </Grid>
 
-            {/* Acciones */}
             <Stack spacing={2} sx={{ mt: 3 }}>
               {!remissionData.fechaSalida && !remissionData.remissionId.endsWith('-G') && (
                 <>
-                  {/* Sacar equipo */}
                   <TextField
                     select
                     label="Método de pago del saldo"
@@ -243,48 +243,40 @@ export default function SearchRemission() {
                     <MenuItem value="Tarjeta">Tarjeta</MenuItem>
                     <MenuItem value="Transferencia">Transferencia</MenuItem>
                   </TextField>
-                  <Button variant="contained" onClick={handleDeliver}>
-                    Sacar equipo
-                  </Button>
-
-                  {/* Dar de baja */}
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={() => setOpenDropDialog(true)}
-                  >
+                  <Button variant="contained" onClick={handleDeliver}>Sacar equipo</Button>
+                  <Button variant="outlined" color="error" onClick={() => setOpenDropDialog(true)}>
                     Dar de baja
                   </Button>
                 </>
               )}
 
-              {/* Ingresar garantía */}
-              {!remissionData.remissionId.endsWith('-G') &&
-                remissionData.fechaSalida &&
-                !originalHasGarantia && (
-                  <Button variant="outlined" color="secondary" onClick={handleGarantia}>
-                    Ingresar garantía
-                  </Button>
-                )}
-
-              {/* Ir a garantía existente */}
+              {!remissionData.remissionId.endsWith('-G') && remissionData.fechaSalida && !originalHasGarantia && (
+                <Button variant="outlined" color="secondary" onClick={handleGarantia}>
+                  Ingresar garantía
+                </Button>
+              )}
               {originalHasGarantia && !remissionData.remissionId.endsWith('-G') && (
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    const idG = `${remissionData.remissionId}-G`;
-                    setRemissionId(idG);
-                    fetchById(idG);
-                  }}
-                >
+                <Button variant="contained" onClick={() => {
+                  const idG = `${remissionData.remissionId}-G`;
+                  setRemissionId(idG);
+                  fetchById(idG);
+                }}>
                   Ir a garantía
                 </Button>
               )}
-
-              {/* Sacar garantía (-G) */}
               {remissionData.remissionId.endsWith('-G') && !remissionData.fechaSalida && (
                 <Button variant="outlined" color="error" onClick={handleSacarGarantia}>
                   Sacar garantía
+                </Button>
+              )}
+
+              {remissionData.remissionId.endsWith('-G') && (
+                <Button variant="contained" onClick={() => {
+                  const originalId = remissionData.remissionId.replace(/-G$/, '');
+                  setRemissionId(originalId);
+                  fetchById(originalId);
+                }}>
+                  Ir a remisión
                 </Button>
               )}
             </Stack>
@@ -292,16 +284,43 @@ export default function SearchRemission() {
         )}
       </Container>
 
-      {/* Diálogo de tipo de baja */}
-      <Dialog
-        open={openDropDialog}
-        onClose={() => setOpenDropDialog(false)}
-      >
+      <Dialog open={openDropDialog} onClose={() => setOpenDropDialog(false)}>
         <DialogTitle>¿Cómo deseas dar de baja?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Elige si deseas cobrar por la revisión del equipo o dar de baja sin cobro.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ flexDirection: 'column', gap: 1, p: 2 }}>
+          <Button variant="contained" fullWidth onClick={() => handleSelectDrop(true)}>
+            Cobrar revisión
+          </Button>
+          <Button variant="outlined" fullWidth color="secondary" onClick={() => handleSelectDrop(false)}>
+            Sin cobro
+          </Button>
+          <Button fullWidth onClick={() => setOpenDropDialog(false)}>Cancelar</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openRevisionDialog} onClose={() => setOpenRevisionDialog(false)}>
+        <DialogTitle>Ingresa el valor de la revisión</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Monto de revisión"
+            type="text"
+            inputProps={{ inputMode: 'decimal' }}
+            fullWidth
+            variant="outlined"
+            value={revisionValueInput}
+            onChange={e => setRevisionValueInput(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start">COP</InputAdornment> }}
+          />
+        </DialogContent>
         <DialogActions>
-          <Button onClick={() => confirmDrop(true)}>Cobrar revisión</Button>
-          <Button onClick={() => confirmDrop(false)}>Sin cobro</Button>
-          <Button onClick={() => setOpenDropDialog(false)}>Cancelar</Button>
+          <Button onClick={() => setOpenRevisionDialog(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={handleConfirmRevision}>Confirmar</Button>
         </DialogActions>
       </Dialog>
     </Box>
