@@ -1,31 +1,16 @@
 import React from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Box, Typography } from '@mui/material';
+import { Outlet } from 'react-router-dom';
 import MedicalNavbar from './MedicalNavbar';
+import Footer from './Footer';
 
-function MedicalLayout() {
-  const { pathname } = useLocation();
-
+export default function MedicalLayout() {
   return (
     <>
       <MedicalNavbar />
       <Outlet />
 
-      {/* Footer fijo en tus dos páginas clave */}
-      {['/entrega-equipo', '/servicio-tecnico'].includes(pathname) && (
-        <Box sx={{ mt: 4, pb: 2 }}>
-          <Typography
-            variant="body1"
-            fontWeight="bold"
-            align="center"
-          >
-            Powered by<br />
-            NetKrow - Connecting dots
-          </Typography>
-        </Box>
-      )}
+      {/* Aquí se añade siempre el footer en la esquina inferior derecha */}
+      <Footer />
     </>
   );
 }
-
-export default MedicalLayout;

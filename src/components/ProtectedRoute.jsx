@@ -6,13 +6,14 @@ import { AuthContext } from '../contexts/AuthContext';
 function ProtectedRoute({ children }) {
   const { user } = useContext(AuthContext);
 
-  // Si no hay usuario, nos vamos a /login
+  // Si no hay usuario, redirige a la raíz
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
-  // Si sí hay usuario, devolvemos el componente hijo
+  // Si hay usuario, renderiza el componente hijo
   return children;
 }
 
 export default ProtectedRoute;
+  
