@@ -1,3 +1,4 @@
+// src/pages/Remisiones.jsx
 import React, { useState } from 'react';
 import {
   Container,
@@ -40,18 +41,19 @@ export default function Remisiones() {
       await axiosClient.post('/remissions', formValues);
       setOpenModal(true);
     } catch (error) {
-      // extraemos un string del objeto de error
-      const data = error.response?.data;
-      const msg = typeof data === 'string'
-        ? data
-        : data?.message || 'Error al ingresar remisión';
+      // Extraemos el mensaje del JSON { message: "..." }
+      const msg =
+        error.response?.data?.message ||
+        'Error al ingresar remisión';
       setErrorMsg(msg);
     }
   };
 
   const handleIngrInfoTecnica = () => {
     setOpenModal(false);
-    navigate('/servicio-tecnico', { state: { remissionId: formValues.remissionId } });
+    navigate('/servicio-tecnico', {
+      state: { remissionId: formValues.remissionId }
+    });
     setFormValues(initialForm);
   };
   const handleIngrDespues = () => {
@@ -155,4 +157,3 @@ export default function Remisiones() {
     </Box>
   );
 }
-
