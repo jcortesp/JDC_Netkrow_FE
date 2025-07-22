@@ -1,16 +1,13 @@
-// src/pages/SpecialistDetails.jsx
 import React from 'react';
 import { useParams } from 'react-router-dom';
+import { Container, Heading, Text } from '@chakra-ui/react';
 
-function SpecialistDetails() {
+export default function SpecialistDetails() {
   const { id } = useParams();
-
   return (
-    <div>
-      <h2>Detalles del Especialista</h2>
-      <p>Aquí se mostrarán los detalles del especialista con ID: {id}</p>
-    </div>
+    <Container maxW="container.md" py={8}>
+      <Heading size="lg" mb={4}>Detalles del Especialista</Heading>
+      <Text>Aquí se mostrarán los detalles del especialista con ID: <strong>{id}</strong></Text>
+    </Container>
   );
 }
-
-export default SpecialistDetails;

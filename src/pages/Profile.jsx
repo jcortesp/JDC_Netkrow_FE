@@ -1,329 +1,146 @@
-import React, { useState, useContext, useEffect } from 'react';
-import {
-  Container,
-  Grid,
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Stack,
-  Avatar,
-  Divider
-} from '@mui/material';
+import React, { useState, useEffect, useContext } from 'react';
 import axiosClient from '../api/axiosClient';
 import { AuthContext } from '../contexts/AuthContext';
-import { Formik, Form } from 'formik';
+import {
+  Container,
+  Heading,
+  Button,
+  Text,
+  Box,
+  SimpleGrid,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
+  Stack,
+  useToast,
+  Avatar
+} from '@chakra-ui/react';
+import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 
-// Esquema de validación para el formulario del perfil
 const ProfileSchema = Yup.object().shape({
-  headline: Yup.string().required('Requerido'),
   about: Yup.string().required('Requerido'),
+  headline: Yup.string().required('Requerido'),
   location: Yup.string().required('Requerido'),
   timezone: Yup.string().required('Requerido'),
   languages: Yup.string().required('Requerido'),
   skills: Yup.string().required('Requerido'),
-  rate: Yup.number()
-    .typeError('Debe ser un número')
-    .required('Requerido')
-    .min(0, 'Debe ser un número positivo'),
+  rate: Yup.number().min(0,'Positivo').required('Requerido'),
   education: Yup.string().required('Requerido'),
   experience: Yup.string().required('Requerido')
 });
 
-const Profile = () => {
+export default function Profile() {
   const { user } = useContext(AuthContext);
-  const userId = user ? user.id : null;
-
-  // Inicialmente se carga el perfil desde el backend
+  const toast = useToast();
   const [profile, setProfile] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [message, setMessage] = useState('');
+  const [editing, setEditing] = useState(false);
 
-  // Cargar datos del perfil del especialista
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!userId) return;
-      try {
-        const response = await axiosClient.get('/specialists/profile', {
-          headers: { userId }
-        });
-        const data = response.data;
+    axiosClient.get('/specialists/profile',{ headers:{ userId:user.id } })
+      .then(r => {
+        const d=r.data;
         setProfile({
-          headline: data.headline || '',
-          about: data.bio || '',
-          location: data.location || '',
-          timezone: data.timezone || '',
-          languages: data.languages || '',
-          skills: data.skills ? data.skills.join(', ') : '',
-          rate: data.ratePerHour ? data.ratePerHour.toString() : '',
-          education: data.education || '',
-          experience: data.experience || ''
+          headline:d.headline, about:d.bio,
+          location:d.location, timezone:d.timezone,
+          languages:d.languages, skills:d.skills.join(', '),
+          rate:d.ratePerHour, education:d.education,
+          experience:d.experience
         });
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-      }
+      });
+  }, [user.id]);
+
+  const toggle = () => setEditing(e=>!e);
+
+  const submit = (vals, actions) => {
+    const payload = {
+      ...vals,
+      skills: vals.skills.split(',').map(s=>s.trim()),
+      ratePerHour: vals.rate
     };
-    fetchProfile();
-  }, [userId]);
-
-  const handleToggleEdit = () => {
-    setIsEditing(!isEditing);
-    setMessage('');
+    axiosClient.post('/specialists/profile', payload, { headers:{ userId:user.id } })
+      .then(r => {
+        toast({ title:'Perfil actualizado', status:'success' });
+        setProfile({ ...r.data, about:r.data.bio });
+        setEditing(false);
+      })
+      .catch(() => toast({ title:'Error', status:'error' }))
+      .finally(()=>actions.setSubmitting(false));
   };
 
-  // Función para enviar la actualización del perfil
-  const handleSubmitProfile = async (values, { setSubmitting }) => {
-    try {
-      const payload = {
-        headline: values.headline,
-        bio: values.about,
-        location: values.location,
-        timezone: values.timezone,
-        languages: values.languages,
-        education: values.education,
-        experience: values.experience,
-        skills: values.skills.split(',').map(skill => skill.trim()),
-        ratePerHour: values.rate
-      };
-      const response = await axiosClient.post('/specialists/profile', payload, {
-        headers: { userId }
-      });
-      setMessage('Perfil actualizado exitosamente');
-      // Actualizamos el estado del perfil con la respuesta del backend
-      setProfile({
-        headline: response.data.headline || '',
-        about: response.data.bio || '',
-        location: response.data.location || '',
-        timezone: response.data.timezone || '',
-        languages: response.data.languages || '',
-        skills: response.data.skills ? response.data.skills.join(', ') : '',
-        rate: response.data.ratePerHour ? response.data.ratePerHour.toString() : '',
-        education: response.data.education || '',
-        experience: response.data.experience || ''
-      });
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setMessage('Error al actualizar el perfil');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  if(!profile) return <Text>Cargando perfil…</Text>;
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Mi Perfil
-      </Typography>
-      <Button variant="contained" onClick={handleToggleEdit} sx={{ mb: 2 }}>
-        {isEditing ? 'Cancelar Edición' : 'Editar'}
+    <Container maxW="container.lg" py={8}>
+      <Heading size="lg" mb={4}>Mi Perfil</Heading>
+      <Button mb={4} onClick={toggle}>
+        {editing? 'Cancelar':'Editar'}
       </Button>
-      {message && <Typography variant="body2" color="primary">{message}</Typography>}
-      {profile ? (
-        <Grid container spacing={4}>
-          {/* Columna izquierda: Datos Básicos y Avatar */}
-          <Grid item xs={12} md={4}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Avatar
-                alt="Foto de perfil"
-                src="https://via.placeholder.com/150"
-                sx={{ width: 150, height: 150, margin: '0 auto' }}
-              />
-            </Box>
-            {!isEditing && (
-              <Stack spacing={2} sx={{ mt: 3 }}>
-                <Typography variant="h6">{profile.headline}</Typography>
-                <Typography variant="body1">{profile.location}</Typography>
-                <Typography variant="body1">Tarifa: {profile.rate} USD/h</Typography>
+      {editing ? (
+        <Formik
+          initialValues={profile}
+          validationSchema={ProfileSchema}
+          onSubmit={submit}
+          enableReinitialize
+        >
+          {({ errors, touched, isSubmitting }) => (
+            <Form>
+              <Stack spacing={4}>
+                <FormControl isInvalid={errors.about && touched.about}>
+                  <FormLabel>Acerca de mí</FormLabel>
+                  <Field as={Textarea} name="about" rows={4}/>
+                </FormControl>
+                <SimpleGrid columns={{base:1,md:2}} spacing={4}>
+                  {['headline','location','timezone','rate'].map(field=>(
+                    <FormControl key={field} isInvalid={errors[field] && touched[field]}>
+                      <FormLabel>
+                        {field==='rate'? 'Tarifa (USD/h)' : field.charAt(0).toUpperCase()+field.slice(1)}
+                      </FormLabel>
+                      <Field
+                        as={field==='about'? Textarea : Input}
+                        name={field}
+                        type={field==='rate'? 'number':'text'}
+                      />
+                    </FormControl>
+                  ))}
+                </SimpleGrid>
+                <FormControl isInvalid={errors.skills && touched.skills}>
+                  <FormLabel>Habilidades (comas)</FormLabel>
+                  <Field as={Input} name="skills" />
+                </FormControl>
+                <FormControl isInvalid={errors.languages && touched.languages}>
+                  <FormLabel>Idiomas (comas)</FormLabel>
+                  <Field as={Input} name="languages" />
+                </FormControl>
+                <FormControl isInvalid={errors.education && touched.education}>
+                  <FormLabel>Educación</FormLabel>
+                  <Field as={Textarea} name="education" rows={2}/>
+                </FormControl>
+                <FormControl isInvalid={errors.experience && touched.experience}>
+                  <FormLabel>Experiencia</FormLabel>
+                  <Field as={Textarea} name="experience" rows={2}/>
+                </FormControl>
+                <Button type="submit" colorScheme="teal" isLoading={isSubmitting}>
+                  Guardar
+                </Button>
               </Stack>
-            )}
-          </Grid>
-          {/* Columna derecha: Detalles y Formulario de Edición */}
-          <Grid item xs={12} md={8}>
-            {isEditing ? (
-              <Formik
-                initialValues={{
-                  headline: profile.headline,
-                  about: profile.about,
-                  location: profile.location,
-                  timezone: profile.timezone,
-                  languages: profile.languages,
-                  skills: profile.skills,
-                  rate: profile.rate,
-                  education: profile.education,
-                  experience: profile.experience
-                }}
-                validationSchema={ProfileSchema}
-                onSubmit={handleSubmitProfile}
-                enableReinitialize={true}
-              >
-                {({ errors, touched, isSubmitting, handleChange, handleBlur, values }) => (
-                  <Form>
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom>
-                        Acerca de mí
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        label="Acerca de"
-                        name="about"
-                        value={values.about}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.about && Boolean(errors.about)}
-                        helperText={touched.about && errors.about}
-                        multiline
-                        rows={4}
-                        sx={{ mb: 2 }}
-                      />
-                    </Box>
-                    <Divider sx={{ my: 3 }} />
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom>
-                        Datos Básicos
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        label="Titular / Headline"
-                        name="headline"
-                        value={values.headline}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.headline && Boolean(errors.headline)}
-                        helperText={touched.headline && errors.headline}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Ubicación"
-                        name="location"
-                        value={values.location}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.location && Boolean(errors.location)}
-                        helperText={touched.location && errors.location}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Timezone"
-                        name="timezone"
-                        value={values.timezone}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.timezone && Boolean(errors.timezone)}
-                        helperText={touched.timezone && errors.timezone}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Tarifa (USD/h)"
-                        name="rate"
-                        type="number"
-                        value={values.rate}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.rate && Boolean(errors.rate)}
-                        helperText={touched.rate && errors.rate}
-                        sx={{ mb: 2 }}
-                      />
-                    </Box>
-                    <Divider sx={{ my: 3 }} />
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom>
-                        Otros Detalles
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        label="Habilidades (separadas por comas)"
-                        name="skills"
-                        value={values.skills}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.skills && Boolean(errors.skills)}
-                        helperText={touched.skills && errors.skills}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Idiomas (separados por comas)"
-                        name="languages"
-                        value={values.languages}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.languages && Boolean(errors.languages)}
-                        helperText={touched.languages && errors.languages}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Educación"
-                        name="education"
-                        value={values.education}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.education && Boolean(errors.education)}
-                        helperText={touched.education && errors.education}
-                        multiline
-                        rows={3}
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        fullWidth
-                        label="Experiencia"
-                        name="experience"
-                        value={values.experience}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        error={touched.experience && Boolean(errors.experience)}
-                        helperText={touched.experience && errors.experience}
-                        multiline
-                        rows={3}
-                        sx={{ mb: 2 }}
-                      />
-                    </Box>
-                    <Button variant="contained" color="primary" type="submit" disabled={isSubmitting}>
-                      Guardar
-                    </Button>
-                  </Form>
-                )}
-              </Formik>
-            ) : (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Acerca de mí
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>{profile.about}</Typography>
-                <Divider sx={{ my: 3 }} />
-                <Typography variant="h6" gutterBottom>
-                  Habilidades
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>{profile.skills}</Typography>
-                <Divider sx={{ my: 3 }} />
-                <Typography variant="h6" gutterBottom>
-                  Idiomas
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>{profile.languages}</Typography>
-                <Divider sx={{ my: 3 }} />
-                <Typography variant="h6" gutterBottom>
-                  Educación
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>{profile.education}</Typography>
-                <Divider sx={{ my: 3 }} />
-                <Typography variant="h6" gutterBottom>
-                  Experiencia
-                </Typography>
-                <Typography variant="body1" sx={{ mb: 2 }}>{profile.experience}</Typography>
-              </Box>
-            )}
-          </Grid>
-        </Grid>
+            </Form>
+          )}
+        </Formik>
       ) : (
-        <Typography>Cargando perfil...</Typography>
+        <Box>
+          <Avatar size="xl" mb={4} />
+          <Text fontWeight="bold">{profile.headline}</Text>
+          <Text>Ubicación: {profile.location}</Text>
+          <Text>Tarifa: ${profile.rate}/h</Text>
+          <Text mt={4}>{profile.about}</Text>
+          <Text mt={4}><strong>Habilidades:</strong> {profile.skills}</Text>
+          <Text><strong>Idiomas:</strong> {profile.languages}</Text>
+          <Text mt={4}><strong>Educación:</strong> {profile.education}</Text>
+          <Text><strong>Experiencia:</strong> {profile.experience}</Text>
+        </Box>
       )}
     </Container>
   );
-};
-
-export default Profile;
+}

@@ -8,7 +8,6 @@ export default function MedicalNavbar() {
     <>
       <AppBar position="static">
         <Toolbar>
-          {/* Botones alineados a la izquierda */}
           <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, gap: 1 }}>
             <Button component={Link} to="/remisiones" color="inherit">
               Ingresar remisión
@@ -23,11 +22,10 @@ export default function MedicalNavbar() {
               Reporte Volumen
             </Button>
           </Box>
-          {/* Se eliminó el logo de aquí */}
         </Toolbar>
       </AppBar>
 
-      {/* Logo fijo en esquina inferior izquierda, siempre visible */}
+      {/* Logo fijo en esquina inferior izquierda */}
       <Box
         component="img"
         src={logo}
@@ -36,12 +34,10 @@ export default function MedicalNavbar() {
           position: 'fixed',
           bottom: 0,
           left: 0,
-          height: 80,    // doble de grande
-          zIndex: theme => theme.zIndex.appBar - 1
+          height: 80,
+          zIndex: (theme) => theme.zIndex.appBar - 1,
         }}
       />
     </>
   );
 }
-
-
