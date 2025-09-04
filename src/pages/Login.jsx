@@ -1,107 +1,101 @@
 import React, { useState, useContext } from 'react';
-import axiosClient from '../api/axiosClient';
-import { AuthContext } from '../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
-
 import {
-  Container,
   Box,
-  Typography,
-  TextField,
+  Flex,
+  Heading,
+  FormControl,
+  FormLabel,
+  Input,
   Button,
+  Text,
+  useToast,
   Stack
-} from '@mui/material';
+} from '@chakra-ui/react';
+import { AuthContext } from '../contexts/AuthContext';
+import axiosClient from '../api/axiosClient';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 
-function Login() {
+export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const toast = useToast();
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axiosClient.post('/auth/login', { email, password });
-      const { token } = response.data;
-      login(token);
-      setMessage('Login exitoso');
+      const { data } = await axiosClient.post('/auth/login', { email, password });
+      login(data.token);
+      toast({
+        title: '¡Login exitoso!',
+        status: 'success',
+        duration: 2000,
+        isClosable: true
+      });
       navigate('/search-specialists');
-    } catch (error) {
-      console.error('Error al iniciar sesión:', error);
-      setMessage(error.response?.data?.message || 'Error al iniciar sesión');
+    } catch (err) {
+      toast({
+        title: 'Error al iniciar sesión',
+        description: err.response?.data?.message || err.message,
+        status: 'error',
+        duration: 4000,
+        isClosable: true
+      });
     }
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        backgroundImage:
-          'url("https://images.wallpaperscraft.com/image/single/crow_bird_beak_272944_1920x1080.jpg")',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}
+    <Flex
+      minH="100vh"
+      bgImage="url('https://images.wallpaperscraft.com/image/single/crow_bird_beak_272944_1920x1080.jpg')"
+      bgSize="cover"
+      bgPos="center"
+      align="center"
+      justify="center"
     >
-      <Container maxWidth="xs">
-        <Box
-          sx={{
-            p: 3,
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            border: '1px solid #ccc',
-            borderRadius: 2
-          }}
-        >
-          <Typography variant="h5" mb={2}>
-            Iniciar Sesión
-          </Typography>
-          <Stack
-            component="form"
-            onSubmit={handleLogin}
-            spacing={2}
-          >
-            <TextField
-              type="email"
-              label="Email"
-              variant="outlined"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              fullWidth
-            />
-            <TextField
-              type="password"
-              label="Contraseña"
-              variant="outlined"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              fullWidth
-            />
-
-            {message && (
-              <Typography variant="body2" color="error">
-                {message}
-              </Typography>
-            )}
-
-            <Button type="submit" variant="contained">
-              Iniciar Sesión
+      <Box bg="whiteAlpha.900" p={8} rounded="md" shadow="md" w="full" maxW="sm">
+        <Heading mb={6} textAlign="center" size="lg">
+          Iniciar Sesión
+        </Heading>
+        <form onSubmit={handleSubmit}>
+          <Stack spacing={4}>
+            <FormControl id="email" isRequired>
+              <FormLabel>Email</FormLabel>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@correo.com"
+              />
+            </FormControl>
+            <FormControl id="password" isRequired>
+              <FormLabel>Contraseña</FormLabel>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </FormControl>
+            <Button colorScheme="teal" type="submit" width="full">
+              Entrar
             </Button>
           </Stack>
-
-          <Typography variant="body2" mt={2}>
-            ¿No tienes una cuenta? <Link to="/register">Regístrate aquí</Link>
-          </Typography>
-        </Box>
-      </Container>
-    </Box>
+        </form>
+        <Text mt={4} textAlign="center" fontSize="sm">
+          ¿No tienes cuenta?{' '}
+          <Button
+            as={RouterLink}
+            to="/register"
+            variant="link"
+            colorScheme="teal"
+            pl={1}
+          >
+            Regístrate
+          </Button>
+        </Text>
+      </Box>
+    </Flex>
   );
 }
-
-export default Login;

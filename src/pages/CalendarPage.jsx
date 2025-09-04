@@ -1,58 +1,64 @@
-// src/pages/CalendarPage.jsx
 import React, { useState, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import axiosClient from '../api/axiosClient';
-import { Container, Typography } from '@mui/material';
+import { Container, Heading, useToast } from '@chakra-ui/react';
 
-const CalendarPage = () => {
+export default function CalendarPage() {
   const [events, setEvents] = useState([]);
+  const toast = useToast();
 
-  // Función para cargar reservas y convertirlas en eventos para FullCalendar
+  // Carga reservas
   const fetchEvents = async () => {
     try {
-      // Obtenemos el mes actual
       const now = new Date();
       const year = now.getFullYear();
-      const month = now.getMonth() + 1; // backend espera mes en 1-indexado
-      const response = await axiosClient.get('/bookings/month', {
+      const month = now.getMonth() + 1;
+      const { data: bookings } = await axiosClient.get('/bookings/month', {
         params: { year, month }
       });
-      const bookings = response.data;
-      // Convertir cada reserva en un objeto de evento
-      const fcEvents = bookings.map(booking => ({
-        id: booking.id,
-        title: booking.status,
-        start: booking.startTime,
-        end: booking.endTime,
-        extendedProps: {
-          clientId: booking.clientId,
-          specialistId: booking.specialistId
-        }
-      }));
-      setEvents(fcEvents);
-    } catch (error) {
-      console.error('Error fetching events:', error);
+      setEvents(
+        bookings.map(b => ({
+          id: b.id,
+          title: b.status,
+          start: b.startTime,
+          end: b.endTime,
+          extendedProps: { clientId: b.clientId, specialistId: b.specialistId }
+        }))
+      );
+    } catch (err) {
+      toast({
+        title: 'Error cargando calendario',
+        description: err.message,
+        status: 'error',
+        isClosable: true
+      });
     }
   };
 
+  // NO retornes la promesa directamente
   useEffect(() => {
     fetchEvents();
   }, []);
 
-  // Ejemplo de interacción: mostrar detalles al hacer clic en un evento
-  const handleEventClick = (clickInfo) => {
-    const { title, start, end, extendedProps } = clickInfo.event;
-    alert(`Reserva ${clickInfo.event.id}\nEstado: ${title}\nInicio: ${start.toLocaleString()}\nFin: ${end.toLocaleString()}\nCliente: ${extendedProps.clientId}\nEspecialista: ${extendedProps.specialistId}`);
-    // Aquí podrías abrir un modal para editar o ver más detalles.
+  const handleEventClick = info => {
+    const { id, title, start, end, extendedProps } = info.event;
+    alert(
+      `Reserva ${id}\n` +
+      `Estado: ${title}\n` +
+      `Inicio: ${start.toLocaleString()}\n` +
+      `Fin: ${end.toLocaleString()}\n` +
+      `Cliente: ${extendedProps.clientId}\n` +
+      `Especialista: ${extendedProps.specialistId}`
+    );
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h5" gutterBottom>
+    <Container maxW="container.lg" mt={8}>
+      <Heading as="h2" size="lg" mb={4}>
         Calendario de Reservas
-      </Typography>
+      </Heading>
       <FullCalendar
         plugins={[dayGridPlugin, interactionPlugin]}
         initialView="dayGridMonth"
@@ -67,6 +73,4 @@ const CalendarPage = () => {
       />
     </Container>
   );
-};
-
-export default CalendarPage;
+}

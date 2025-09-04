@@ -7,9 +7,11 @@ export default function MedicalLayout() {
   return (
     <>
       <MedicalNavbar />
+
+      {/* Outlet para las páginas médicas */}
       <Outlet />
 
-      {/* Aquí se añade siempre el footer en la esquina inferior derecha */}
+      {/* Footer siempre visible en esquina inferior derecha */}
       <Footer />
     </>
   );

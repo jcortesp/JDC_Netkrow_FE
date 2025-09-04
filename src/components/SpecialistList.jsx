@@ -1,47 +1,41 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
+  SimpleGrid,
   Card,
-  CardContent,
-  CardActions,
-  Typography,
+  CardHeader,
+  CardBody,
+  Heading,
+  Text,
   Button
-} from '@mui/material';
+} from '@chakra-ui/react';
 
-function SpecialistList({ specialists }) {
-  if (specialists.length === 0) {
-    return <p>No se encontraron especialistas con los criterios dados.</p>;
+export default function SpecialistList({ specialists }) {
+  if (!specialists.length) {
+    return <Text>No se encontraron especialistas.</Text>;
   }
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {specialists.map((sp) => (
-        <Card key={sp.id} variant="outlined">
-          <CardContent>
-            <Typography variant="subtitle1">
-              <strong>ID:</strong> {sp.id}
-            </Typography>
-            <Typography variant="body2">
-              <strong>Skills:</strong> {sp.skills?.join(', ')}
-            </Typography>
-            <Typography variant="body2">
-              <strong>Tarifa por Hora:</strong> ${sp.ratePerHour}
-            </Typography>
-          </CardContent>
-          <CardActions>
+    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+      {specialists.map(sp => (
+        <Card key={sp.id} borderWidth="1px">
+          <CardHeader>
+            <Heading size="sm">ID: {sp.id}</Heading>
+          </CardHeader>
+          <CardBody>
+            <Text><strong>Skills:</strong> {sp.skills?.join(', ')}</Text>
+            <Text mt={2}><strong>Tarifa:</strong> ${sp.ratePerHour}</Text>
             <Button
-              size="small"
-              component={Link}
+              mt={4}
+              size="sm"
+              as={RouterLink}
               to={`/specialists/${sp.id}`}
             >
               Ver Detalles
             </Button>
-          </CardActions>
+          </CardBody>
         </Card>
       ))}
-    </Box>
+    </SimpleGrid>
   );
 }
-
-export default SpecialistList;

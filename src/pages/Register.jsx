@@ -1,130 +1,86 @@
-// src/pages/Register.jsx
 import React from 'react';
-import { Formik } from 'formik';
+import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import axiosClient from '../api/axiosClient';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Box,
-  Typography,
-  TextField,
+  Stack,
+  FormControl,
+  FormLabel,
+  Input,
+  Select,
   Button,
-  MenuItem,
-  Stack
-} from '@mui/material';
+  Heading,
+  Text,
+  useToast,
+  Link
+} from '@chakra-ui/react';
 
-function Register() {
+const RegisterSchema = Yup.object().shape({
+  name: Yup.string().required('Requerido'),
+  email: Yup.string().email('Inválido').required('Requerido'),
+  password: Yup.string().min(6,'Mín 6 chars').required('Requerido')
+});
+
+export default function Register() {
   const navigate = useNavigate();
-
-  const initialValues = {
-    name: '',
-    email: '',
-    password: '',
-    role: 'ROLE_CLIENT'  // Valor por defecto; el usuario podrá cambiarlo a ROLE_SPECIALIST
-  };
-
-  const validationSchema = Yup.object({
-    name: Yup.string().required('Requerido'),
-    email: Yup.string().email('Email inválido').required('Requerido'),
-    password: Yup.string()
-      .min(6, 'Debe tener al menos 6 caracteres')
-      .required('Requerido')
-    // Se asume que el rol se envía correctamente y no requiere validación adicional
-  });
-
-  const onSubmit = async (values, { setSubmitting, setFieldError }) => {
-    try {
-      // Enviar el objeto con name, email, password y role
-      await axiosClient.post('/auth/register', values);
-      navigate('/login');
-    } catch (error) {
-      setFieldError('email', error.response?.data || 'Error al registrar');
-    }
-    setSubmitting(false);
-  };
+  const toast = useToast();
 
   return (
-    <Container maxWidth="xs" sx={{ mt: 5 }}>
-      <Box
-        sx={{
-          p: 3,
-          backgroundColor: '#fff',
-          border: '1px solid #ccc',
-          borderRadius: 2
-        }}
-      >
-        <Typography variant="h5" mb={2}>
-          Registro
-        </Typography>
+    <Container maxW="sm" mt={10}>
+      <Box p={6} bg="white" rounded="md" shadow="md">
+        <Heading size="md" mb={4}>Registro</Heading>
         <Formik
-          initialValues={initialValues}
-          validationSchema={validationSchema}
-          onSubmit={onSubmit}
+          initialValues={{ name:'', email:'', password:'', role:'ROLE_CLIENT' }}
+          validationSchema={RegisterSchema}
+          onSubmit={async (vals, actions) => {
+            try {
+              await axiosClient.post('/auth/register', vals);
+              toast({ title:'Registrado', status:'success' });
+              navigate('/login');
+            } catch (err) {
+              toast({ title:'Error', status:'error', description: err.message });
+            } finally {
+              actions.setSubmitting(false);
+            }
+          }}
         >
-          {({ errors, touched, isSubmitting, handleChange, handleBlur, values, handleSubmit }) => (
-            <form onSubmit={handleSubmit}>
-              <Stack spacing={2}>
-                <TextField
-                  name="name"
-                  label="Nombre"
-                  variant="outlined"
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  value={values.name}
-                  error={touched.name && Boolean(errors.name)}
-                  helperText={touched.name && errors.name}
-                  fullWidth
-                />
-                <TextField
-                  name="email"
-                  label="Email"
-                  variant="outlined"
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  value={values.email}
-                  error={touched.email && Boolean(errors.email)}
-                  helperText={touched.email && errors.email}
-                  fullWidth
-                />
-                <TextField
-                  name="password"
-                  label="Contraseña"
-                  type="password"
-                  variant="outlined"
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  value={values.password}
-                  error={touched.password && Boolean(errors.password)}
-                  helperText={touched.password && errors.password}
-                  fullWidth
-                />
-                <TextField
-                  select
-                  name="role"
-                  label="Rol"
-                  variant="outlined"
-                  value={values.role}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  fullWidth
-                >
-                  <MenuItem value="ROLE_CLIENT">Cliente</MenuItem>
-                  <MenuItem value="ROLE_SPECIALIST">Especialista</MenuItem>
-                </TextField>
-                <Button type="submit" variant="contained" disabled={isSubmitting}>
+          {({ errors, touched, isSubmitting }) => (
+            <Form>
+              <Stack spacing={4}>
+                <FormControl isInvalid={errors.name && touched.name}>
+                  <FormLabel>Nombre</FormLabel>
+                  <Field as={Input} name="name" />
+                </FormControl>
+                <FormControl isInvalid={errors.email && touched.email}>
+                  <FormLabel>Email</FormLabel>
+                  <Field as={Input} name="email" />
+                </FormControl>
+                <FormControl isInvalid={errors.password && touched.password}>
+                  <FormLabel>Contraseña</FormLabel>
+                  <Field as={Input} name="password" type="password" />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Rol</FormLabel>
+                  <Field as={Select} name="role">
+                    <option value="ROLE_CLIENT">Cliente</option>
+                    <option value="ROLE_SPECIALIST">Especialista</option>
+                  </Field>
+                </FormControl>
+                <Button type="submit" colorScheme="teal" isLoading={isSubmitting}>
                   Registrarse
                 </Button>
               </Stack>
-            </form>
+            </Form>
           )}
         </Formik>
-        <Typography variant="body2" mt={2}>
-          ¿Ya tienes una cuenta? <Link to="/login">Inicia sesión aquí</Link>
-        </Typography>
+        <Text mt={4}>
+          ¿Ya tienes cuenta?{' '}
+          <Link color="teal.500" href="/login">Inicia sesión aquí</Link>
+        </Text>
       </Box>
     </Container>
   );
 }
-
-export default Register;

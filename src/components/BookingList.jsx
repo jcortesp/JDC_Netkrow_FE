@@ -1,150 +1,104 @@
-// src/components/BookingList.jsx
 import React, { useState, useEffect, useContext } from 'react';
 import axiosClient from '../api/axiosClient';
 import { AuthContext } from '../contexts/AuthContext';
 import {
   Container,
+  Heading,
+  Text,
   Table,
-  TableBody,
-  TableCell,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
   TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Button,
-  Typography
-} from '@mui/material';
+  useToast,
+  Box
+} from '@chakra-ui/react';
 import BookingModifyForm from './BookingModifyForm';
 
-function BookingList() {
-  const [bookings, setBookings] = useState([]);
-  const [message, setMessage] = useState('');
-  const [editingBookingId, setEditingBookingId] = useState(null);
+export default function BookingList() {
   const { user } = useContext(AuthContext);
+  const toast = useToast();
+  const [bookings, setBookings] = useState([]);
+  const [editId, setEditId] = useState(null);
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const response = await axiosClient.get('/bookings/all');
-        setBookings(response.data);
-      } catch (error) {
-        console.error('Error al obtener reservas:', error);
-        setMessage(error.response?.data || 'Error al obtener reservas.');
-      }
-    };
-    fetchBookings();
+    axiosClient.get('/bookings/all')
+      .then(r => setBookings(r.data))
+      .catch(err => toast({ title: 'Error fetching', status: 'error', description: err.message }));
   }, []);
 
-  const handleConfirm = async (bookingId) => {
-    try {
-      await axiosClient.post(`/bookings/${bookingId}/confirm`);
-      setBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, status: 'CONFIRMED' } : b))
-      );
-      setMessage('Reserva confirmada exitosamente.');
-    } catch (error) {
-      console.error('Error al confirmar reserva:', error);
-      setMessage(error.response?.data || 'Error al confirmar reserva.');
-    }
+  const updateStatus = (id, url, newStatus) => {
+    axiosClient.post(url)
+      .then(() => {
+        setBookings(bs => bs.map(b => b.id === id ? { ...b, status: newStatus } : b));
+        toast({ title: `Reserva ${newStatus.toLowerCase()}`, status: 'success' });
+      })
+      .catch(err => toast({ title: 'Error', status: 'error', description: err.message }));
   };
 
-  const handleCancel = async (bookingId) => {
-    try {
-      await axiosClient.put(`/bookings/${bookingId}/cancel`);
-      setBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, status: 'CANCELLED' } : b))
-      );
-      setMessage('Reserva cancelada exitosamente.');
-    } catch (error) {
-      console.error('Error al cancelar reserva:', error);
-      setMessage(error.response?.data || 'Error al cancelar reserva.');
-    }
-  };
-
-  const handleModificationSuccess = (updatedBooking) => {
-    setBookings((prev) =>
-      prev.map((b) => (b.id === updatedBooking.id ? updatedBooking : b))
-    );
-    setEditingBookingId(null);
-    setMessage('Reserva modificada exitosamente.');
+  const onModified = updated => {
+    setBookings(bs => bs.map(b => b.id === updated.id ? updated : b));
+    setEditId(null);
+    toast({ title: 'Reserva modificada', status: 'success' });
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      <Typography variant="h5" gutterBottom>
-        Lista de Reservas
-      </Typography>
-
-      {message && (
-        <Typography variant="body2" color="error" sx={{ mb: 2 }}>
-          {message}
-        </Typography>
-      )}
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Cliente ID</TableCell>
-              <TableCell>Especialista ID</TableCell>
-              <TableCell>Inicio</TableCell>
-              <TableCell>Fin</TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {bookings.map((booking) => (
-              <React.Fragment key={booking.id}>
-                <TableRow>
-                  <TableCell>{booking.id}</TableCell>
-                  <TableCell>{booking.clientId}</TableCell>
-                  <TableCell>{booking.specialistId}</TableCell>
-                  <TableCell>
-                    {booking.startTime ? new Date(booking.startTime).toLocaleString() : '---'}
-                  </TableCell>
-                  <TableCell>
-                    {booking.endTime ? new Date(booking.endTime).toLocaleString() : '---'}
-                  </TableCell>
-                  <TableCell>{booking.status}</TableCell>
-                  <TableCell>
-                    {user?.roles?.includes('ROLE_SPECIALIST') && booking.status === 'PENDING' && (
-                      <Button variant="outlined" onClick={() => handleConfirm(booking.id)} sx={{ mr: 1 }}>
+    <Container maxW="container.md" mt={8}>
+      <Heading size="lg" mb={4}>Lista de Reservas</Heading>
+      <TableContainer mb={4}>
+        <Table variant="simple">
+          <Thead>
+            <Tr>
+              {['ID','Cliente','Especialista','Inicio','Fin','Estado','Acciones'].map(h => <Th key={h}>{h}</Th>)}
+            </Tr>
+          </Thead>
+          <Tbody>
+            {bookings.map(b => (
+              <React.Fragment key={b.id}>
+                <Tr>
+                  <Td>{b.id}</Td>
+                  <Td>{b.clientId}</Td>
+                  <Td>{b.specialistId}</Td>
+                  <Td>{new Date(b.startTime).toLocaleString()}</Td>
+                  <Td>{new Date(b.endTime).toLocaleString()}</Td>
+                  <Td>{b.status}</Td>
+                  <Td>
+                    {user?.roles?.includes('ROLE_SPECIALIST') && b.status === 'PENDING' && (
+                      <Button size="sm" mr={2}
+                        onClick={()=>updateStatus(b.id,`/bookings/${b.id}/confirm`,'CONFIRMED')}>
                         Confirmar
                       </Button>
                     )}
-                    {booking.status !== 'CANCELLED' && (
-                      <Button variant="outlined" color="error" onClick={() => handleCancel(booking.id)} sx={{ mr: 1 }}>
+                    {b.status !== 'CANCELLED' && (
+                      <Button size="sm" colorScheme="red" mr={2}
+                        onClick={()=>updateStatus(b.id,`/bookings/${b.id}/cancel`,'CANCELLED')}>
                         Cancelar
                       </Button>
                     )}
-                    {booking.status === 'PENDING' && (
-                      <Button
-                        variant="outlined"
-                        onClick={() =>
-                          setEditingBookingId(editingBookingId === booking.id ? null : booking.id)
-                        }
-                      >
-                        {editingBookingId === booking.id ? 'Cerrar Modificación' : 'Modificar'}
+                    {b.status==='PENDING' && (
+                      <Button size="sm"
+                        onClick={()=> setEditId(id => id===b.id? null: b.id)}>
+                        {editId===b.id? 'Cerrar':'Modificar'}
                       </Button>
                     )}
-                  </TableCell>
-                </TableRow>
-                {editingBookingId === booking.id && (
-                  <TableRow>
-                    <TableCell colSpan={7}>
-                      <BookingModifyForm booking={booking} onModificationSuccess={handleModificationSuccess} />
-                    </TableCell>
-                  </TableRow>
+                  </Td>
+                </Tr>
+                {editId===b.id && (
+                  <Tr>
+                    <Td colSpan={7}>
+                      <BookingModifyForm booking={b} onModificationSuccess={onModified}/>
+                    </Td>
+                  </Tr>
                 )}
               </React.Fragment>
             ))}
-          </TableBody>
+          </Tbody>
         </Table>
       </TableContainer>
+      {bookings.length===0 && <Text>No hay reservas.</Text>}
     </Container>
   );
 }
-
-export default BookingList;
