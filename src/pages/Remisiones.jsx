@@ -17,6 +17,15 @@ import {
 import axiosClient from '../api/axiosClient';
 import { useNavigate } from 'react-router-dom';
 
+// UUID v4 simple (suficiente para idempotencia en app)
+function uuidv4() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export default function Remisiones() {
   const initialForm = {
     remissionId: '',
@@ -28,6 +37,7 @@ export default function Remisiones() {
   const [formValues, setFormValues] = useState(initialForm);
   const [openModal, setOpenModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -37,15 +47,24 @@ export default function Remisiones() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // bloqueo doble click
+    setIsSubmitting(true);
+    setErrorMsg('');
     try {
-      await axiosClient.post('/remissions', formValues);
+      await axiosClient.post(
+        '/remissions',
+        formValues,
+        { headers: { 'Idempotency-Key': uuidv4() } }
+      );
       setOpenModal(true);
     } catch (error) {
-      // Extraemos el mensaje del JSON { message: "..." }
       const msg =
-        error.response?.data?.message ||
+        error?.response?.data?.message ||
+        error?.message ||
         'Error al ingresar remisión';
       setErrorMsg(msg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -134,8 +153,13 @@ export default function Remisiones() {
             <MenuItem value="Tarjeta">Tarjeta</MenuItem>
             <MenuItem value="Transferencia">Transferencia</MenuItem>
           </TextField>
-          <Button type="submit" variant="contained" fullWidth>
-            Ingresar
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Ingresando…' : 'Ingresar'}
           </Button>
         </Box>
       </Container>
@@ -148,8 +172,10 @@ export default function Remisiones() {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleIngrDespues}>Ingresar Después</Button>
-          <Button onClick={handleIngrInfoTecnica} variant="contained">
+          <Button onClick={handleIngrDespues} disabled={isSubmitting}>
+            Ingresar Después
+          </Button>
+          <Button onClick={handleIngrInfoTecnica} variant="contained" disabled={isSubmitting}>
             Ingresar información técnica
           </Button>
         </DialogActions>
