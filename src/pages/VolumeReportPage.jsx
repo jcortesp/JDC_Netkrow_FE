@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Container, Box, Typography,
   TextField, Button, Stack,
@@ -16,56 +16,38 @@ import {
 export default function VolumeReportPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [equipo, setEquipo] = useState('');
   const [estado, setEstado] = useState('');
-  const [equiposList, setEquiposList] = useState([]);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Colores basados en la NavBar
   const COLORS = [
     '#1976d2', '#dc004e', '#2e7d32',
     '#ed6c02', '#0288d1', '#9c27b0',
     '#d32f2f', '#02897b'
   ];
 
-  useEffect(() => {
-    axiosClient.get('/reports/remissions/equipos')
-      .then(res => setEquiposList(res.data))
-      .catch(() => {});
-  }, []);
-
   const handleGenerate = async () => {
     setLoading(true);
     setError('');
     try {
       const params = { from, to };
-      if (equipo) params.equipo = equipo;
       if (estado) params.estado = estado;
       const resp = await axiosClient.get('/reports/remissions/volume', { params });
-      setData(resp.data);
+      setData(Array.isArray(resp.data) ? resp.data : []);
     } catch (e) {
-      setError(e.response?.data?.message || 'Error generando reporte');
+      setError(e.response?.data?.message || e.message || 'Error generando reporte');
     } finally {
       setLoading(false);
     }
   };
 
-  // Sumas totales
-  const totalRemisionesSum = data.reduce((sum, d) => sum + d.totalRemisiones, 0);
-  const totalValorSum     = data.reduce((sum, d) => sum + d.totalValor, 0);
-
-  // Datos para pie charts
-  const valorByEquipo = data.reduce((acc, d) => {
-    acc[d.equipo] = (acc[d.equipo] || 0) + d.totalValor;
-    return acc;
-  }, {});
-  const pieDataEquipo = Object.entries(valorByEquipo)
-    .map(([name, value]) => ({ name, value }));
+  const totalRemisionesSum = data.reduce((sum, d) => sum + (d.totalRemisiones || 0), 0);
+  const totalValorSum     = data.reduce((sum, d) => sum + (d.totalValor || 0), 0);
 
   const valorByEstado = data.reduce((acc, d) => {
-    acc[d.estado] = (acc[d.estado] || 0) + d.totalValor;
+    const key = d.estado || '—';
+    acc[key] = (acc[key] || 0) + (d.totalValor || 0);
     return acc;
   }, {});
   const pieDataEstado = Object.entries(valorByEstado)
@@ -74,7 +56,6 @@ export default function VolumeReportPage() {
   const exportCsv = () => {
     if (!data.length) return;
 
-    const equipoLabel = equipo || 'Ninguno';
     const estadoLabel = estado || 'Ninguno';
 
     const now = new Date();
@@ -84,24 +65,22 @@ export default function VolumeReportPage() {
     const metaLines = [
       `Rango desde: ${from}`,
       `Rango hasta: ${to}`,
-      `Filtro Equipo: ${equipoLabel}`,
       `Filtro Estado: ${estadoLabel}`,
       ''
     ].join('\n') + '\n';
 
-    const header = 'Fecha,Equipo,Estado,Total remisiones,Total Valor\n';
+    const header = 'Fecha,Estado,Total remisiones,Total Valor\n';
 
     const rows = data.map(d => {
       const fecha = d.fecha || '';
-      const eq     = d.equipo || '';
       const est    = d.estado || '';
-      const tr     = d.totalRemisiones;
-      const tvStr  = `$${Math.round(d.totalValor)}`; // sin comas
-      return [fecha, eq, est, tr, tvStr].join(',');
+      const tr     = d.totalRemisiones || 0;
+      const tvStr  = `$${Math.round(d.totalValor || 0)}`;
+      return [fecha, est, tr, tvStr].join(',');
     }).join('\n') + '\n';
 
     const totalRow = [
-      'Totales', '', '',
+      'Totales', '',
       totalRemisionesSum,
       `$${Math.round(totalValorSum)}`
     ].join(',') + '\n';
@@ -118,7 +97,6 @@ export default function VolumeReportPage() {
   };
 
   return (
-    // Añadido padding-bottom para que al hacer scroll los diagramas no queden tapados
     <Container
       maxWidth="lg"
       sx={{
@@ -154,20 +132,6 @@ export default function VolumeReportPage() {
         />
         <TextField
           select
-          label="Equipo"
-          value={equipo}
-          onChange={e => setEquipo(e.target.value)}
-          SelectProps={{ native: true }}
-          InputLabelProps={{ shrink: true }}
-          fullWidth
-        >
-          <option value="">Todos</option>
-          {equiposList.map(eq => (
-            <option key={eq} value={eq}>{eq}</option>
-          ))}
-        </TextField>
-        <TextField
-          select
           label="Estado"
           value={estado}
           onChange={e => setEstado(e.target.value)}
@@ -186,7 +150,7 @@ export default function VolumeReportPage() {
           size="large"
           sx={{ minWidth: 120 }}
         >
-          Generar
+          {loading ? 'Generando…' : 'Generar'}
         </Button>
         <Button
           variant="outlined"
@@ -203,7 +167,6 @@ export default function VolumeReportPage() {
 
       {data.length > 0 && (
         <>
-          {/* Línea */}
           <Box sx={{ width: '100%', height: 300 }}>
             <ResponsiveContainer>
               <LineChart
@@ -224,13 +187,11 @@ export default function VolumeReportPage() {
             </ResponsiveContainer>
           </Box>
 
-          {/* Tabla */}
           <TableContainer component={Paper} sx={{ mt: 3 }}>
             <Table>
               <TableHead>
                 <TableRow>
                   <TableCell>Fecha</TableCell>
-                  <TableCell>Equipo</TableCell>
                   <TableCell>Estado</TableCell>
                   <TableCell align="right">Total remisiones</TableCell>
                   <TableCell align="right">Total Valor</TableCell>
@@ -238,24 +199,23 @@ export default function VolumeReportPage() {
               </TableHead>
               <TableBody>
                 {data.map(row => (
-                  <TableRow key={`${row.fecha}-${row.equipo}-${row.estado}`}>
+                  <TableRow key={`${row.fecha}-${row.estado}`}>
                     <TableCell>{row.fecha}</TableCell>
-                    <TableCell>{row.equipo}</TableCell>
                     <TableCell>{row.estado}</TableCell>
                     <TableCell align="right">
-                      {row.totalRemisiones.toLocaleString('es-CO')}
+                      {(row.totalRemisiones || 0).toLocaleString('es-CO')}
                     </TableCell>
                     <TableCell align="right">
                       {new Intl.NumberFormat('es-CO', {
                         style: 'currency',
                         currency: 'COP'
-                      }).format(row.totalValor)}
+                      }).format(row.totalValor || 0)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow>
                   <TableCell><strong>Totales</strong></TableCell>
-                  <TableCell /><TableCell />
+                  <TableCell />
                   <TableCell align="right">
                     <strong>{totalRemisionesSum.toLocaleString('es-CO')}</strong>
                   </TableCell>
@@ -270,36 +230,8 @@ export default function VolumeReportPage() {
             </Table>
           </TableContainer>
 
-          {/* Pasteles */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-around', mt: 4 }}>
-            <Box sx={{ width: '45%', height: 300 }}>
-              <Typography align="center" gutterBottom>
-                Participación por Equipo (Valor)
-              </Typography>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={pieDataEquipo}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={100}
-                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                  >
-                    {pieDataEquipo.map((_, index) => (
-                      <Cell
-                        key={`cell-equipo-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip formatter={value =>
-                    `$${Math.round(value)}`
-                  }/>
-                  <Legend verticalAlign="bottom" height={36} />
-                </PieChart>
-              </ResponsiveContainer>
-            </Box>
-            <Box sx={{ width: '45%', height: 300 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <Box sx={{ width: 500, height: 300 }}>
               <Typography align="center" gutterBottom>
                 Participación por Estado (Valor)
               </Typography>
@@ -319,9 +251,7 @@ export default function VolumeReportPage() {
                       />
                     ))}
                   </Pie>
-                  <RechartsTooltip formatter={value =>
-                    `$${Math.round(value)}`
-                  }/>
+                  <RechartsTooltip formatter={value => `$${Math.round(value)}`} />
                   <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>

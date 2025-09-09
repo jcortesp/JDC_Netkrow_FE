@@ -21,6 +21,7 @@ export default function EquipmentDelivery() {
   const [severity, setSeverity] = useState('success');
   const [deliveryMethod, setDeliveryMethod] = useState('');
   const [isGarantia, setIsGarantia] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatMoney = (value) => {
     if (value == null) return '';
@@ -28,6 +29,15 @@ export default function EquipmentDelivery() {
       style: 'currency',
       currency: 'COP'
     }).format(value);
+  };
+
+  const calcSaldo = (r) => {
+    if (!r) return 0;
+    if (typeof r.saldo === 'number') return r.saldo;
+    const tv = typeof r.totalValue === 'number' ? r.totalValue : Number(r.totalValue || 0);
+    const dv = typeof r.depositValue === 'number' ? r.depositValue : Number(r.depositValue || 0);
+    const s  = tv - dv;
+    return isNaN(s) ? 0 : s;
   };
 
   const handleSearch = async (e) => {
@@ -41,46 +51,57 @@ export default function EquipmentDelivery() {
       setMessage(
         err.response?.status === 404
           ? 'No se encontró la remisión'
-          : 'Error al comunicar con el servidor'
+          : (err.response?.data?.message || 'Error al comunicar con el servidor')
       );
       setRemissionData(null);
     }
   };
 
   const handleDeliverOrGarantia = async () => {
+    if (!remissionData) return;
     setMessage('');
+    setIsSubmitting(true);
     try {
-      let data;
+      let resp;
       if (isGarantia) {
-        // Ingreso de garantía
-        ({ data } = await axiosClient.put(
+        resp = await axiosClient.put(
           `/remissions/${remissionData.remissionId}/garantia`
-        ));
+        );
         setMessage('Garantía ingresada correctamente.');
       } else {
-        // Entrega de equipo
-        ({ data } = await axiosClient.put(
+        const saldo = calcSaldo(remissionData);
+        if (saldo > 0 && !deliveryMethod) {
+          setSeverity('error');
+          setMessage('Debe seleccionar el método de pago del saldo.');
+          setIsSubmitting(false);
+          return;
+        }
+        resp = await axiosClient.put(
           `/remissions/deliver/${remissionData.remissionId}`,
-          { metodoSaldo: deliveryMethod }
-        ));
+          { metodoSaldo: deliveryMethod || null }
+        );
         setMessage('Equipo entregado correctamente.');
       }
       setSeverity('success');
-      setRemissionData(data);
-      // Si acabas de ingresar garantía, actualiza el ID en el input
-      if (isGarantia) {
-        setRemissionId(data.remissionId);
+      setRemissionData(resp.data);
+      if (isGarantia && resp.data?.remissionId) {
+        setRemissionId(resp.data.remissionId);
       }
     } catch (err) {
       setSeverity('error');
-      const errMsg = err.response?.data?.message || '';
+      const errMsg = err.response?.data?.message || err.message || '';
       setMessage(
         isGarantia
-          ? errMsg || 'Error al ingresar garantía.'
-          : errMsg || 'Error al entregar equipo.'
+          ? (errMsg || 'Error al ingresar garantía.')
+          : (errMsg || 'Error al entregar equipo.')
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const saldo = calcSaldo(remissionData);
+  const requiresPayment = !isGarantia && !remissionData?.fechaSalida && saldo > 0;
 
   return (
     <Box sx={{ minHeight: '100vh', py: 4, background: '#f5f5f5' }}>
@@ -107,8 +128,8 @@ export default function EquipmentDelivery() {
             fullWidth
             required
           />
-          <Button type="submit" variant="contained" fullWidth>
-            Buscar remisión
+          <Button type="submit" variant="contained" fullWidth disabled={isSubmitting}>
+            {isSubmitting ? 'Buscando…' : 'Buscar remisión'}
           </Button>
         </Box>
 
@@ -127,10 +148,10 @@ export default function EquipmentDelivery() {
             <Typography
               sx={{
                 fontWeight: 'bold',
-                color: remissionData.fechaSalida ? 'green' : 'red'
+                color: remissionData.fechaSalida ? 'green' : (saldo > 0 ? 'red' : 'inherit')
               }}
             >
-              <strong>Saldo:</strong> {formatMoney(remissionData.saldo)}
+              <strong>Saldo:</strong> {formatMoney(saldo)}
             </Typography>
 
             {remissionData.fechaSalida && (
@@ -157,7 +178,7 @@ export default function EquipmentDelivery() {
                   label="Ingresar como garantía"
                 />
 
-                {!isGarantia && (
+                {requiresPayment && (
                   <TextField
                     select
                     label="Método de pago del saldo"
@@ -176,6 +197,7 @@ export default function EquipmentDelivery() {
                   variant="contained"
                   onClick={handleDeliverOrGarantia}
                   fullWidth
+                  disabled={isSubmitting || (requiresPayment && !deliveryMethod)}
                 >
                   {isGarantia ? 'Ingresar garantía' : 'Sacar equipo'}
                 </Button>
