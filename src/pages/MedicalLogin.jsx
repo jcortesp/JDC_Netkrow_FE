@@ -1,4 +1,3 @@
-// src/pages/MedicalLogin.jsx
 import React, { useState, useContext } from 'react';
 import axiosClient from '../api/axiosClient';
 import { AuthContext } from '../contexts/AuthContext';
@@ -9,28 +8,35 @@ import {
   Typography,
   TextField,
   Button,
-  Stack
+  Stack,
+  CircularProgress,
 } from '@mui/material';
 
 function MedicalLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (isLoading) return;
+    setIsLoading(true);
+    setMessage('');
+
     try {
       const response = await axiosClient.post('/auth/login', { email, password });
       const { token } = response.data;
       login(token);
-      // Redirigimos a la página de remisiones
       navigate('/remisiones');
     } catch (error) {
       console.error('Error al iniciar sesión:', error);
       setMessage(error.response?.data?.message || 'Error al iniciar sesión');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -49,7 +55,7 @@ function MedicalLogin() {
         sx={{
           position: 'absolute',
           top: '50%',
-          left: '25%', // para alinear hacia la izquierda
+          left: '25%',
           transform: 'translate(-50%, -50%)'
         }}
       >
@@ -89,8 +95,14 @@ function MedicalLogin() {
                 {message}
               </Typography>
             )}
-            <Button type="submit" variant="contained" fullWidth>
-              Iniciar Sesión
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              disabled={isLoading}
+              startIcon={isLoading ? <CircularProgress size={18} /> : null}
+            >
+              {isLoading ? 'Ingresando…' : 'Iniciar Sesión'}
             </Button>
           </Stack>
         </Box>
@@ -100,4 +112,3 @@ function MedicalLogin() {
 }
 
 export default MedicalLogin;
-

@@ -74,6 +74,20 @@ export default function TechnicalRecordForm({
           ))}
         </TextField>
 
+        {/* Valor (COP) - NUEVO */}
+        <TextField
+          label="Valor (COP)"
+          name="valor"
+          type="number"
+          inputProps={{ step: '0.01', min: '0' }}
+          value={form.valor ?? ''}
+          onChange={onChange}
+          fullWidth
+          disabled={readOnly}
+          sx={borderStyle(form.valor ?? '')}
+          InputLabelProps={{ shrink: true }}
+        />
+
         {/* Marca */}
         <TextField
           label="Marca"
@@ -119,7 +133,7 @@ export default function TechnicalRecordForm({
           ))}
         </TextField>
 
-        {/* Pilas (añadida opción 'OK') */}
+        {/* Pilas */}
         <TextField
           select
           label="Pilas"
@@ -183,7 +197,6 @@ export default function TechnicalRecordForm({
           InputLabelProps={{ shrink: true }}
         />
 
-        {/* Botón Guardar solo en modo edición */}
         {!readOnly && (
           <Button type="submit" variant="contained">
             Guardar
