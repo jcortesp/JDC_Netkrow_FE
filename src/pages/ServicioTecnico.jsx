@@ -29,7 +29,7 @@ export default function ServicioTecnico() {
   const [newMode, setNewMode] = useState(false);
 
   const initialRecord = {
-    equipo: '', marca: '', serial: '', brazalete: '',
+    equipo: '', valor: '', marca: '', serial: '', brazalete: '',
     pilas: '', revision: '', mantenimiento: '',
     limpieza: '', calibracion: '', notasDiagnostico: ''
   };
@@ -58,8 +58,10 @@ export default function ServicioTecnico() {
 
   useEffect(() => {
     if (initialId) {
+      // Antes abría automáticamente el formulario de nuevo equipo.
+      // Ahora SOLO cargamos datos y dejamos la opción para que el usuario decida agregar.
       fetchRemision(initialId).then(() => {
-        setNewMode(true);
+        setNewMode(false);           // <── clave para no abrir el form
         setNewRecord(initialRecord);
       });
     }
@@ -67,7 +69,9 @@ export default function ServicioTecnico() {
 
   const handleCreate = async (form) => {
     try {
-      await axiosClient.post(`/remissions/${remissionId}/technical-records`, form);
+      // Normalizamos valor a número
+      const payload = { ...form, valor: form.valor === '' ? 0 : Number(form.valor) };
+      await axiosClient.post(`/remissions/${remissionId}/technical-records`, payload);
       await fetchRemision(remissionId);
       setSuccessMsg('Guardado con éxito');
       setNewMode(false);
@@ -78,7 +82,8 @@ export default function ServicioTecnico() {
 
   const handleUpdate = async (recordId, form) => {
     try {
-      await axiosClient.put(`/remissions/${remissionId}/technical-records/${recordId}`, form);
+      const payload = { ...form, valor: form.valor === '' ? 0 : Number(form.valor) };
+      await axiosClient.put(`/remissions/${remissionId}/technical-records/${recordId}`, payload);
       await fetchRemision(remissionId);
       setSuccessMsg('Guardado con éxito');
       setExpanded(false);
@@ -147,11 +152,11 @@ export default function ServicioTecnico() {
                 }}
               >
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  {rec.equipo} — {rec.marca}
+                  {rec.equipo} — {rec.marca} {typeof rec.valor !== 'undefined' ? `— $${rec.valor}` : ''}
                 </AccordionSummary>
                 <AccordionDetails>
                   <TechnicalRecordForm
-                    form={rec}
+                    form={{ ...rec, valor: rec.valor ?? '' }}
                     onChange={e => {
                       const { name, value } = e.target;
                       setRecords(rs =>
@@ -221,5 +226,3 @@ export default function ServicioTecnico() {
     </Box>
   );
 }
-
-

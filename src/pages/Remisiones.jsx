@@ -1,5 +1,4 @@
-// src/pages/Remisiones.jsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Container,
   Box,
@@ -12,8 +11,12 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Alert
+  Alert,
+  Stack,
+  IconButton,
+  CircularProgress,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import axiosClient from '../api/axiosClient';
 import { useNavigate } from 'react-router-dom';
 
@@ -26,37 +29,133 @@ function uuidv4() {
   });
 }
 
+const EQUIPO_OPTS = [
+  'Tensiometro digital',
+  'Tensiometro analogico',
+  'Tensiometro de muñeca',
+  'Bascula digital',
+  'Bascula analogica',
+  'Glucometro',
+  'Nebulizador',
+  'Termometro',
+  'Termohidrometro',
+  'Oximetro',
+  'Concentrado de Oxigeno',
+  'TEMS',
+  'Otro'
+];
+
 export default function Remisiones() {
   const initialForm = {
     remissionId: '',
-    totalValue: '',
+    totalValue: '',         // se muestra como solo lectura
     depositValue: '',
     depositMethod: ''
   };
 
   const [formValues, setFormValues] = useState(initialForm);
+  const [equipos, setEquipos] = useState([{ equipo: '', valor: '' }]); // al menos uno
   const [openModal, setOpenModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
+  const totalCalculado = useMemo(() => {
+    return equipos.reduce((acc, it) => {
+      const v = parseFloat(String(it.valor).replace(',', '.'));
+      return acc + (isNaN(v) ? 0 : v);
+    }, 0);
+  }, [equipos]);
+
+  const handleChangeForm = (e) => {
     setFormValues({ ...formValues, [e.target.name]: e.target.value });
     setErrorMsg('');
   };
 
+  const handleChangeEquipo = (idx, name, value) => {
+    setEquipos(prev => prev.map((e,i) => i === idx ? { ...e, [name]: value } : e));
+  };
+
+  const addEquipo = () => {
+    setEquipos(prev => [...prev, { equipo: '', valor: '' }]);
+  };
+
+  const validarEquipos = () => {
+    if (equipos.length === 0) return 'Debe ingresar al menos un equipo';
+    for (const e of equipos) {
+      if (!e.equipo) return 'Seleccione el tipo de equipo';
+      const v = parseFloat(String(e.valor).replace(',', '.'));
+      if (isNaN(v) || v < 0) return 'Ingrese un valor válido (>= 0) para cada equipo';
+    }
+    return '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return; // bloqueo doble click
+    if (isSubmitting) return;
+
     setIsSubmitting(true);
     setErrorMsg('');
+
+    // Validaciones front rápidas
+    if (!formValues.remissionId?.trim()) {
+      setErrorMsg('Ingrese el ID de remisión.');
+      setIsSubmitting(false);
+      return;
+    }
+    const errEq = validarEquipos();
+    if (errEq) {
+      setErrorMsg(errEq);
+      setIsSubmitting(false);
+      return;
+    }
+    const abono = parseFloat(String(formValues.depositValue).replace(',', '.'));
+    if (isNaN(abono) || abono < 0) {
+      setErrorMsg('Ingrese un valor de abono válido (>= 0).');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!formValues.depositMethod) {
+      setErrorMsg('Seleccione un método de abono.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
+      // 1) Crear remisión con total calculado
+      const payloadRem = {
+        remissionId: formValues.remissionId,
+        totalValue: totalCalculado,
+        depositValue: abono,
+        metodoAbono: formValues.depositMethod, // si tu backend espera depositMethod, cambia aquí
+        depositMethod: formValues.depositMethod // por compat — ignora si backend no lo usa
+      };
+
       await axiosClient.post(
         '/remissions',
-        formValues,
+        payloadRem,
         { headers: { 'Idempotency-Key': uuidv4() } }
       );
+
+      // 2) Crear registros técnicos (equipo + valor) contra el remissionId ingresado
+      const remId = formValues.remissionId.trim();
+
+      // Secuencial para simplificar manejo de errores y garantizar orden
+      for (const eItem of equipos) {
+        const valorNum = parseFloat(String(eItem.valor).replace(',', '.')) || 0;
+        const body = {
+          equipo: eItem.equipo,
+          valor: valorNum
+        };
+        await axiosClient.post(`/remissions/${encodeURIComponent(remId)}/technical-records`, body);
+      }
+
+      // 3) Abrir modal de “ingresar info técnica”
       setOpenModal(true);
+
+      // IMPORTANTE: devolvemos aquí para evitar ejecutar reset en un finally antes de mostrar modal
+      setIsSubmitting(false);
+      return;
     } catch (error) {
       const msg =
         error?.response?.data?.message ||
@@ -64,20 +163,24 @@ export default function Remisiones() {
         'Error al ingresar remisión';
       setErrorMsg(msg);
     } finally {
+      // Si no hicimos el return anterior (hubo error), aseguramos desbloqueo:
       setIsSubmitting(false);
     }
   };
 
   const handleIngrInfoTecnica = () => {
     setOpenModal(false);
-    navigate('/servicio-tecnico', {
-      state: { remissionId: formValues.remissionId }
-    });
+    const remId = formValues.remissionId;
+    // Reseteamos el formulario para la próxima, pero después de navegar
+    navigate('/servicio-tecnico', { state: { remissionId: remId } });
     setFormValues(initialForm);
+    setEquipos([{ equipo: '', valor: '' }]);
   };
+
   const handleIngrDespues = () => {
     setOpenModal(false);
     setFormValues(initialForm);
+    setEquipos([{ equipo: '', valor: '' }]);
   };
 
   return (
@@ -118,25 +221,69 @@ export default function Remisiones() {
             label="ID de remisión"
             name="remissionId"
             value={formValues.remissionId}
-            onChange={handleChange}
+            onChange={handleChangeForm}
             fullWidth
             required
           />
+
+          {/* Lista dinámica de equipos */}
+          <Typography variant="subtitle1" sx={{ mt: 1 }}>
+            Equipos de la remisión
+          </Typography>
+
+          {equipos.map((e, idx) => (
+            <Stack key={idx} direction="row" gap={2}>
+              <TextField
+                select
+                label={`Equipo #${idx + 1}`}
+                value={e.equipo}
+                onChange={(ev) => handleChangeEquipo(idx, 'equipo', ev.target.value)}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+              >
+                {EQUIPO_OPTS.map(opt => (
+                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                label="Valor (COP)"
+                type="number"
+                inputProps={{ step: '0.01', min: '0' }}
+                value={e.valor}
+                onChange={(ev) => handleChangeEquipo(idx, 'valor', ev.target.value)}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+              />
+            </Stack>
+          ))}
+
+          <Stack direction="row" justifyContent="flex-end">
+            <IconButton onClick={addEquipo} title="Agregar equipo" disabled={isSubmitting}>
+              <AddIcon />
+            </IconButton>
+          </Stack>
+
+          {/* Total solo lectura */}
           <TextField
             label="Valor Total (COP)"
             name="totalValue"
             type="number"
-            value={formValues.totalValue}
-            onChange={handleChange}
+            value={totalCalculado}
             fullWidth
-            required
+            InputProps={{ readOnly: true }}
+            helperText="Se calcula automáticamente sumando los valores de los equipos"
           />
+
+          {/* Abono y método */}
           <TextField
             label="Valor Abono (COP)"
             name="depositValue"
             type="number"
             value={formValues.depositValue}
-            onChange={handleChange}
+            onChange={handleChangeForm}
             fullWidth
             required
           />
@@ -145,7 +292,7 @@ export default function Remisiones() {
             label="Método Abono"
             name="depositMethod"
             value={formValues.depositMethod}
-            onChange={handleChange}
+            onChange={handleChangeForm}
             fullWidth
             required
           >
@@ -153,11 +300,13 @@ export default function Remisiones() {
             <MenuItem value="Tarjeta">Tarjeta</MenuItem>
             <MenuItem value="Transferencia">Transferencia</MenuItem>
           </TextField>
+
           <Button
             type="submit"
             variant="contained"
             fullWidth
             disabled={isSubmitting}
+            startIcon={isSubmitting ? <CircularProgress size={18} /> : null}
           >
             {isSubmitting ? 'Ingresando…' : 'Ingresar'}
           </Button>
