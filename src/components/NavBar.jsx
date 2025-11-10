@@ -87,28 +87,43 @@ export default function NavBar() {
               Cerrar Sesión
             </Button>
 
-            <IconButton
-              aria-label="Correo"
-              icon={
-                <Badge colorScheme="red" borderRadius="full" px={1} mr={-2}>
-                  4
-                </Badge>
-              }
-              as={EmailIcon}
-              variant="ghost"
-              color={color}
-            />
-            <IconButton
-              aria-label="Notificaciones"
-              icon={
-                <Badge colorScheme="red" borderRadius="full" px={1} mr={-2}>
-                  17
-                </Badge>
-              }
-              as={BellIcon}
-              variant="ghost"
-              color={color}
-            />
+            {/* Icono de correo con badge correcto */}
+            <Box position="relative">
+              <IconButton
+                aria-label="Correo"
+                icon={<EmailIcon />}
+                variant="ghost"
+                color={color}
+              />
+              <Badge
+                colorScheme="red"
+                borderRadius="full"
+                position="absolute"
+                top="-2px"
+                right="-2px"
+              >
+                4
+              </Badge>
+            </Box>
+
+            {/* Icono de notificaciones con badge correcto */}
+            <Box position="relative">
+              <IconButton
+                aria-label="Notificaciones"
+                icon={<BellIcon />}
+                variant="ghost"
+                color={color}
+              />
+              <Badge
+                colorScheme="red"
+                borderRadius="full"
+                position="absolute"
+                top="-2px"
+                right="-2px"
+              >
+                17
+              </Badge>
+            </Box>
 
             <Menu>
               <MenuButton as={IconButton} icon={<Avatar size="sm" />} />

@@ -8,7 +8,16 @@ export default function MedicalNavbar() {
     <>
       <AppBar position="static">
         <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, gap: 1 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              flexGrow: 1,
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            {/* Navegación existente */}
             <Button component={Link} to="/remisiones" color="inherit">
               Ingresar remisión
             </Button>
@@ -20,6 +29,14 @@ export default function MedicalNavbar() {
             </Button>
             <Button component={Link} to="/reports/volume" color="inherit">
               Reporte Volumen
+            </Button>
+
+            {/* 🆕 Nuevas opciones */}
+            <Button component={Link} to="/products" color="inherit">
+              Productos
+            </Button>
+            <Button component={Link} to="/sales" color="inherit">
+              Ventas
             </Button>
           </Box>
         </Toolbar>

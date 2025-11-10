@@ -13,10 +13,10 @@
     "@chakra-ui/icons": "^2.2.4",
     "@chakra-ui/react": "^2.10.9",
     "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.0",
-    "@fullcalendar/daygrid": "^6.1.15",
-    "@fullcalendar/interaction": "^6.1.15",
-    "@fullcalendar/react": "^6.1.15",
+    "@emotion/styled": "^11.14.1",
+    "@fullcalendar/daygrid": "^6.1.19",
+    "@fullcalendar/interaction": "^6.1.19",
+    "@fullcalendar/react": "^6.1.19",
     "@mui/icons-material": "^6.4.11",
     "@mui/material": "^6.4.3",
     "axios": "^1.7.9",
@@ -28,8 +28,8 @@
     "react-dom": "^18.3.1",
     "react-flow-renderer": "^10.3.17",
     "react-router-dom": "^6.28.1",
-    "recharts": "^2.15.3",
-    "yup": "^1.6.1"
+    "recharts": "^2.15.4",
+    "yup": "^1.7.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

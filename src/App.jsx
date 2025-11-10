@@ -1,3 +1,4 @@
+// src/App.jsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
@@ -22,6 +23,8 @@ import BookingList from './components/BookingList';
 import SpecialistDetails from './pages/SpecialistDetails';
 import CalendarPage from './pages/CalendarPage';
 
+import ProductsPage from './pages/ProductsPage';
+import SalesPage from './pages/SalesPage';
 
 import RCAWizard from './pages/RCAWizard';
 
@@ -33,36 +36,44 @@ function App() {
       <CssBaseline />
       <BrowserRouter>
         <Routes>
-          {/* Públicas */}
+          {/* Rutas públicas */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/medical-login" element={<MedicalLogin />} />
 
-          {/* Médicas protegidas */}
-          <Route element={
-            <ProtectedRoute>
-              <MedicalLayout />
-            </ProtectedRoute>
-          }>
+          {/* ---- BLOQUE: Layout Médico (MUI) ---- */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <MedicalLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route path="/remisiones" element={<Remisiones />} />
             <Route path="/entrega-equipo" element={<SearchRemission />} />
             <Route path="/servicio-tecnico" element={<ServicioTecnico />} />
             <Route path="/reports/volume" element={<VolumeReportPage />} />
+
+            {/* 👇 Mover acá para que usen MedicalNavbar */}
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/sales" element={<SalesPage />} />
           </Route>
 
-          {/* Flujo de especialistas */}
-          <Route element={
-            <ProtectedRoute>
-              <NavBar />
-            </ProtectedRoute>
-          }>
+          {/* ---- BLOQUE: Flujo Especialistas (Chakra) ---- */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <NavBar />
+              </ProtectedRoute>
+            }
+          >
             <Route path="/search-specialists" element={<SearchSpecialists />} />
-            <Route path="/create-booking"    element={<BookingForm />} />
-            <Route path="/bookings"          element={<BookingList />} />
-            <Route path="/specialists/:id"   element={<SpecialistDetails />} />
-            <Route path="/calendar"          element={<CalendarPage />} />
-            <Route path="/rca-wizard"        element={<RCAWizard />} />
+            <Route path="/create-booking" element={<BookingForm />} />
+            <Route path="/bookings" element={<BookingList />} />
+            <Route path="/specialists/:id" element={<SpecialistDetails />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/rca-wizard" element={<RCAWizard />} />
           </Route>
         </Routes>
       </BrowserRouter>
