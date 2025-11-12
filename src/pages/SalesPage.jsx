@@ -1,535 +1,690 @@
-import React, { useEffect, useMemo, useState } from 'react';
+// src/pages/SalesPage.jsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
+  Button,
   Container,
-  Typography,
+  Grid,
+  IconButton,
+  Paper,
   Stack,
   TextField,
-  Button,
-  MenuItem,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Paper,
-  TableContainer,
+  Typography,
+  Tooltip,
+  Divider,
+  Snackbar,
   Alert,
   CircularProgress,
-  IconButton,
-} from '@mui/material';
-import Autocomplete from '@mui/material/Autocomplete';
-import AddIcon from '@mui/icons-material/Add';
-import axiosClient from '../api/axiosClient';
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Select,
+  MenuItem,
+} from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
+import SaveIcon from "@mui/icons-material/Save";
+import PersonAddAlt1Icon from "@mui/icons-material/PersonAddAlt1";
+import Autocomplete from "@mui/material/Autocomplete";
+import dayjs from "dayjs";
+import api from "../api/axiosClient";
+
+// Opciones fijas (ajústalas si tu BE usa otros valores exactos)
+const CHANNELS = ["Tienda", "WhatsApp", "Instagram", "Web"];
+const PAYMENT_METHODS = ["Efectivo", "Nequi", "Bancolombia", "Tarjeta"];
+const TRANSACTION_TYPES = ["Venta", "Alquiler"];
 
 export default function SalesPage() {
+  // Catálogos
   const [products, setProducts] = useState([]);
-  const [list, setList] = useState([]);
-
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
-  const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
+  // Venta
+  const [saleDate, setSaleDate] = useState(dayjs().format("YYYY-MM-DDTHH:mm"));
+  const [channel, setChannel] = useState("Tienda");
+  const [paymentMethod, setPaymentMethod] = useState("Efectivo");
+  const [transactionType, setTransactionType] = useState("Venta");
+  const [returnDate, setReturnDate] = useState(""); // solo para alquiler
+  const [remisionVenta, setRemisionVenta] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  // Mostrar / ocultar historial de ventas
-  const [showSalesTable, setShowSalesTable] = useState(false);
-
-  // Cabecera compartida
-  const [header, setHeader] = useState({
-    saleDate: '',          // automática
-    remisionVenta: '',
-    transactionType: 'Venta',
-    channel: 'Tienda',
-    paymentMethod: 'Efectivo',
-    returnDate: '',        // solo aplica si es Alquiler
-  });
-
-  // Detalle: múltiples líneas
+  // Items multi-producto
   const [items, setItems] = useState([
-    { productId: '', unitQty: 1, price: 0 },
+    { product: null, qty: 1, price: 0, lineTotal: 0 },
   ]);
 
-  // ==== Carga inicial ====
+  // Historial
+  const [sales, setSales] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
-  const loadProducts = async () => {
-    try {
-      const resp = await axiosClient.get('/products');
-      setProducts(Array.isArray(resp.data) ? resp.data : []);
-    } catch (e) {
-      setError(e.response?.data?.message || e.message);
-    }
-  };
+  // UI
+  const [snack, setSnack] = useState({ open: false, msg: "", sev: "success" });
+  const notify = (msg, sev = "success") => setSnack({ open: true, msg, sev });
+  const closeSnack = () => setSnack((s) => ({ ...s, open: false }));
 
-  const loadSales = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const resp = await axiosClient.get('/sales');
-      setList(Array.isArray(resp.data) ? resp.data : []);
-    } catch (e) {
-      setError(e.response?.data?.message || e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Crear cliente
+  const [openCreateCustomer, setOpenCreateCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    firstName: "",
+    lastName: "",
+    documentId: "",
+    phone: "",
+    email: "",
+    city: "",
+    address: "",
+  });
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
 
+  // Carga inicial
   useEffect(() => {
-    loadProducts();
-    loadSales();
-
-    // Fecha automática (local) al cargar la página
-    const todayStr = new Date().toISOString().slice(0, 10);
-    setHeader(prev => ({ ...prev, saleDate: todayStr }));
+    (async () => {
+      setLoading(true);
+      try {
+        const [pRes, cRes, sRes] = await Promise.all([
+          api.get("/products"),
+          api.get("/customers", { params: { q: "" } }),
+          api.get("/sales"),
+        ]);
+        setProducts(pRes.data || []);
+        setCustomers(cRes.data || []);
+        setSales(Array.isArray(sRes.data) ? sRes.data : []);
+      } catch (e) {
+        console.error(e);
+        notify("Error cargando datos iniciales", "error");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  // ==== Helpers ====
-
-  const onHeaderChange = (field, value) => {
-    // saleDate no se puede editar
-    if (field === 'saleDate') return;
-
-    // si cambia tipo y pasa de Alquiler a Venta, limpiamos returnDate
-    if (field === 'transactionType') {
-      setHeader(prev => ({
-        ...prev,
-        transactionType: value,
-        returnDate: value === 'Alquiler' ? prev.returnDate : '',
-      }));
-      setError('');
-      setSuccessMsg('');
-      return;
+  // Buscar clientes por texto
+  const searchCustomers = async (q) => {
+    try {
+      const res = await api.get("/customers", { params: { q } });
+      setCustomers(res.data || []);
+    } catch (e) {
+      console.error(e);
     }
-
-    setHeader(prev => ({ ...prev, [field]: value }));
-    setError('');
-    setSuccessMsg('');
   };
 
-  const onItemChange = (idx, field, value) => {
-    setItems(prev =>
-      prev.map((it, i) => {
-        if (i !== idx) return it;
-
-        if (field === 'productId') {
-          const prod = products.find(p => String(p.productId) === String(value));
-          return {
-            ...it,
-            productId: value,
-            price: prod?.price ?? 0,
-          };
-        }
-
-        if (field === 'unitQty') {
-          const qty = Number(value) || 0;
-          return { ...it, unitQty: qty };
-        }
-
-        if (field === 'price') {
-          return { ...it, price: Number(value) || 0 };
-        }
-
-        return { ...it, [field]: value };
-      })
-    );
-    setError('');
-    setSuccessMsg('');
-  };
-
-  const addItem = () => {
-    setItems(prev => [...prev, { productId: '', unitQty: 1, price: 0 }]);
-  };
-
-  const removeItem = (idx) => {
-    setItems(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const lineTotal = (item) => {
-    const qty = Number(item.unitQty) || 0;
-    const price = Number(item.price) || 0;
-    return qty * price;
-  };
-
-  const totalGeneral = useMemo(
-    () => items.reduce((acc, it) => acc + lineTotal(it), 0),
+  // Total de la venta
+  const totalVenta = useMemo(
+    () => items.reduce((acc, it) => acc + (it.lineTotal || 0), 0),
     [items]
   );
 
-  const getProductLabel = (id) => {
-    const p = products.find(pp => String(pp.productId) === String(id));
-    return p ? `${p.name} (${p.category})` : id;
+  // Handlers de items
+  const updateItem = (idx, patch) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const cur = { ...next[idx], ...patch };
+      const qty = Number(cur.qty) > 0 ? Number(cur.qty) : 0;
+      const price = Number(cur.price) >= 0 ? Number(cur.price) : 0;
+      cur.lineTotal = +(qty * price).toFixed(2);
+      next[idx] = cur;
+      return next;
+    });
   };
 
-  // ==== Submit ====
+  const handleSelectProduct = (idx, product) => {
+    if (!product) {
+      updateItem(idx, { product: null, price: 0, qty: 1 });
+      return;
+    }
+    const price = Number(product.price ?? 0);
+    updateItem(idx, { product, price, qty: 1 });
+  };
 
+  const addItem = () =>
+    setItems((prev) => [...prev, { product: null, qty: 1, price: 0, lineTotal: 0 }]);
+
+  const removeItem = (idx) =>
+    setItems((prev) => prev.filter((_, i) => i !== idx));
+
+  // Guardar venta
   const submit = async () => {
-    setSubmitting(true);
-    setError('');
-    setSuccessMsg('');
-
     try {
-      // Fecha automática en el momento del registro
-      const todayStr = new Date().toISOString().slice(0, 10);
-
-      if (!todayStr) {
-        throw new Error('No se pudo determinar la fecha actual.');
+      if (!selectedCustomer?.customerId) {
+        notify("Selecciona un cliente", "warning");
+        return;
+      }
+      if (!remisionVenta?.trim()) {
+        notify("La remisión es obligatoria", "warning");
+        return;
+      }
+      const lines = items
+        .filter((it) => it.product && it.qty > 0)
+        .map((it) => ({
+          productId: it.product.productId,
+          unitQty: Number(it.qty),
+          unitPrice: Number(it.price),
+        }));
+      if (!lines.length) {
+        notify("Agrega al menos un producto", "warning");
+        return;
       }
 
-      if (!header.remisionVenta || !header.remisionVenta.trim()) {
-        throw new Error('La remisión es obligatoria.');
-      }
+      const payload = {
+        saleDate: dayjs(saleDate).isValid()
+          ? dayjs(saleDate).toISOString()
+          : dayjs().toISOString(),
+        remisionVenta: remisionVenta.trim(),
+        transactionType,
+        productId: lines[0].productId, // compat con BE
+        channel,
+        unitQty: lines[0].unitQty,
+        saleValue: totalVenta,
+        paymentMethod,
+        customerId: selectedCustomer.customerId,
+        items: lines, // si el BE ya soporta multi-línea
+        returnDate: transactionType === "Alquiler" ? returnDate : null,
+      };
 
-      if (!['Venta', 'Alquiler'].includes(header.transactionType)) {
-        throw new Error('Tipo de transacción inválido. Debe ser Venta o Alquiler.');
-      }
-
-      if (!header.channel) {
-        throw new Error('Selecciona el canal.');
-      }
-
-      if (!header.paymentMethod) {
-        throw new Error('Selecciona la forma de pago.');
-      }
-
-      // Validación específica para Alquiler
-      if (header.transactionType === 'Alquiler') {
-        if (!header.returnDate) {
-          throw new Error('Selecciona la fecha de devolución para el alquiler.');
-        }
-        if (header.returnDate < todayStr) {
-          throw new Error('La fecha de devolución no puede ser anterior a la fecha actual.');
-        }
-      }
-
-      if (!items.length) throw new Error('Agrega al menos un producto.');
-
-      for (const it of items) {
-        if (!it.productId) {
-          throw new Error('Todas las líneas deben tener un producto seleccionado.');
-        }
-        const qty = Number(it.unitQty);
-        if (!qty || qty <= 0) {
-          throw new Error('La cantidad debe ser mayor a 0 en todas las líneas.');
-        }
-        const prod = products.find(p => String(p.productId) === String(it.productId));
-        const price = Number(it.price || prod?.price || 0);
-        if (!price || price < 0) {
-          throw new Error('Cada producto debe tener un precio válido.');
-        }
-      }
-
-      // Crear una venta por cada línea
-      for (const it of items) {
-        const prod = products.find(p => String(p.productId) === String(it.productId));
-        const price = Number(it.price || prod?.price || 0);
-        const qty = Number(it.unitQty) || 0;
-        const value = qty * price;
-
-        const payload = {
-          saleDate: todayStr,
-          remisionVenta: header.remisionVenta.trim(),
-          transactionType: header.transactionType,
-          productId: Number(it.productId),
-          channel: header.channel,
-          unitQty: qty,
-          saleValue: value,
-          paymentMethod: header.paymentMethod,
-        };
-
-        // Si es alquiler, adjuntamos la fecha de devolución para que el BE pueda usarla cuando se extienda el modelo
-        if (header.transactionType === 'Alquiler') {
-          payload.returnDate = header.returnDate;
-        }
-
-        await axiosClient.post('/sales', payload);
-      }
-
-      setSuccessMsg('Ventas registradas correctamente.');
-      await loadSales();
-
-      // Reset parcial: mantener fecha automática, reset remisión, tipo y detalle
-      const newToday = new Date().toISOString().slice(0, 10);
-      setItems([{ productId: '', unitQty: 1, price: 0 }]);
-      setHeader({
-        saleDate: newToday,
-        remisionVenta: '',
-        transactionType: 'Venta',
-        channel: 'Tienda',
-        paymentMethod: 'Efectivo',
-        returnDate: '',
-      });
+      await api.post("/sales", payload);
+      notify("Venta guardada");
+      loadSales();
+      setRemisionVenta("");
+      setItems([{ product: null, qty: 1, price: 0, lineTotal: 0 }]);
     } catch (e) {
-      setError(e.response?.data?.message || e.message || 'Error al registrar ventas');
+      console.error(e);
+      if (e?.response?.status === 409) {
+        notify("Ya existe una venta con esa remisión", "error");
+      } else {
+        notify("Error guardando la venta", "error");
+      }
+    }
+  };
+
+  // Cargar historial
+  const loadSales = async () => {
+    try {
+      setHistoryLoading(true);
+      const res = await api.get("/sales");
+      setSales(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.error(e);
+      notify("Error cargando historial", "error");
     } finally {
-      setSubmitting(false);
+      setHistoryLoading(false);
+    }
+  };
+
+  // Crear cliente
+  const openNewCustomer = () => {
+    setNewCustomer({
+      firstName: "",
+      lastName: "",
+      documentId: "",
+      phone: "",
+      email: "",
+      city: "",
+      address: "",
+    });
+    setOpenCreateCustomer(true);
+  };
+  const closeNewCustomer = () => setOpenCreateCustomer(false);
+
+  const submitCreateCustomer = async () => {
+    if (!newCustomer.firstName?.trim()) {
+      notify("El nombre es obligatorio", "warning");
+      return;
+    }
+    if (!newCustomer.email?.trim() && !newCustomer.documentId?.trim()) {
+      notify("Email o Documento: al menos uno es obligatorio", "warning");
+      return;
+    }
+
+    setCreatingCustomer(true);
+    try {
+      const res = await api.post("/customers", newCustomer);
+      const created = res.data;
+
+      // Actualiza catálogo in-memory sin duplicados
+      setCustomers((prev) => {
+        const next = [created, ...prev];
+        const map = new Map(next.map((c) => [c.customerId, c]));
+        return Array.from(map.values());
+      });
+      setSelectedCustomer(created);
+      closeNewCustomer();
+      notify("Cliente creado y seleccionado");
+    } catch (e) {
+      console.error(e);
+      if (e?.response?.status === 409) {
+        notify("Ya existe un cliente con ese email o documento", "error");
+      } else {
+        notify("Error creando el cliente", "error");
+      }
+    } finally {
+      setCreatingCustomer(false);
     }
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', py: 4, background: '#f5f5f5' }}>
-      <Container maxWidth="md" sx={{ bgcolor: '#fff', p: 4, borderRadius: 2 }}>
-        <Typography variant="h5" align="center" gutterBottom>
-          Registro de Ventas
-        </Typography>
+    <Container maxWidth="lg" sx={{ py: 2 }}>
+      <Typography variant="h5" gutterBottom>
+        Registro de ventas
+      </Typography>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
-
-        {/* Cabecera */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-          <TextField
-            label="Fecha (automática)"
-            type="date"
-            value={header.saleDate}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-            InputProps={{ readOnly: true }}
-          />
-          <TextField
-            label="Remisión"
-            value={header.remisionVenta}
-            onChange={e => onHeaderChange('remisionVenta', e.target.value)}
-            fullWidth
-            required
-          />
-          <TextField
-            label="Tipo de transacción"
-            select
-            value={header.transactionType}
-            onChange={e => onHeaderChange('transactionType', e.target.value)}
-            fullWidth
-          >
-            <MenuItem value="Venta">Venta</MenuItem>
-            <MenuItem value="Alquiler">Alquiler</MenuItem>
-          </TextField>
-        </Stack>
-
-        {/* Campo adicional solo para Alquiler */}
-        {header.transactionType === 'Alquiler' && (
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-            <TextField
-              label="Fecha de devolución"
-              type="date"
-              value={header.returnDate}
-              onChange={e => onHeaderChange('returnDate', e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              required
-            />
-          </Stack>
-        )}
-
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-          <TextField
-            label="Canal"
-            select
-            value={header.channel}
-            onChange={e => onHeaderChange('channel', e.target.value)}
-            fullWidth
-          >
-            <MenuItem value="Tienda">Tienda</MenuItem>
-            <MenuItem value="Online">Online</MenuItem>
-            <MenuItem value="WhatsApp">WhatsApp</MenuItem>
-            <MenuItem value="Otro">Otro</MenuItem>
-          </TextField>
-          <TextField
-            label="Forma de pago"
-            select
-            value={header.paymentMethod}
-            onChange={e => onHeaderChange('paymentMethod', e.target.value)}
-            fullWidth
-          >
-            <MenuItem value="Efectivo">Efectivo</MenuItem>
-            <MenuItem value="Tarjeta">Tarjeta</MenuItem>
-            <MenuItem value="Transferencia">Transferencia</MenuItem>
-            <MenuItem value="Nequi">Nequi</MenuItem>
-            <MenuItem value="Daviplata">Daviplata</MenuItem>
-          </TextField>
-        </Stack>
-
-        {/* Detalle con Autocomplete */}
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          Productos de la venta
-        </Typography>
-
-        {items.map((it, idx) => {
-          const selectedProduct =
-            products.find(p => String(p.productId) === String(it.productId)) || null;
-
-          return (
-            <Stack
-              key={idx}
-              direction={{ xs: 'column', md: 'row' }}
-              spacing={2}
-              sx={{ mb: 1 }}
-            >
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2}>
+          {/* Cliente */}
+          <Grid item xs={12} md={6}>
+            <Stack direction="row" spacing={1} alignItems="flex-end">
               <Autocomplete
-                options={products}
-                value={selectedProduct}
-                onChange={(_, newValue) =>
-                  onItemChange(idx, 'productId', newValue ? newValue.productId : '')
-                }
-                getOptionLabel={(option) =>
-                  option && typeof option === 'object'
-                    ? `${option.name} — ${option.category} — ${new Intl.NumberFormat(
-                        'es-CO',
-                        { style: 'currency', currency: 'COP' }
-                      ).format(option.price || 0)}`
-                    : ''
+                fullWidth
+                options={customers}
+                value={selectedCustomer}
+                onChange={(_, val) => setSelectedCustomer(val)}
+                onInputChange={(_, q) => searchCustomers(q)}
+                getOptionLabel={(c) =>
+                  c ? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() : ""
                 }
                 renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={`Producto #${idx + 1}`}
-                    fullWidth
-                  />
+                  <TextField {...params} label="Cliente" size="small" />
                 )}
-                isOptionEqualToValue={(opt, val) =>
-                  opt.productId === val.productId
-                }
-                fullWidth
               />
-
-              <TextField
-                label="Unidades"
-                type="number"
-                value={it.unitQty}
-                onChange={e => onItemChange(idx, 'unitQty', e.target.value)}
-                fullWidth
-                inputProps={{ min: 1 }}
-              />
-
-              <TextField
-                label="Precio unitario (COP)"
-                type="number"
-                value={it.price}
-                onChange={e => onItemChange(idx, 'price', e.target.value)}
-                fullWidth
-              />
-
-              <TextField
-                label="Subtotal (COP)"
-                value={lineTotal(it)}
-                fullWidth
-                InputProps={{ readOnly: true }}
-              />
-
-              {items.length > 1 && (
-                <Button
-                  color="error"
-                  onClick={() => removeItem(idx)}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  Quitar
-                </Button>
-              )}
+              <Tooltip title="Nuevo cliente">
+                <IconButton color="primary" onClick={openNewCustomer}>
+                  <PersonAddAlt1Icon />
+                </IconButton>
+              </Tooltip>
             </Stack>
-          );
-        })}
 
-        <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
-          <IconButton
-            onClick={addItem}
-            disabled={submitting}
-            title="Agregar producto"
-          >
-            <AddIcon />
+            {selectedCustomer && (
+              <Box mt={1} sx={{ color: "text.secondary", fontSize: 13 }}>
+                <div>
+                  <strong>Documento:</strong> {selectedCustomer.documentId || "-"}
+                </div>
+                <div>
+                  <strong>Teléfono:</strong> {selectedCustomer.phone || "-"}
+                </div>
+                <div>
+                  <strong>Email:</strong> {selectedCustomer.email || "-"}
+                </div>
+                <div>
+                  <strong>Ciudad:</strong> {selectedCustomer.city || "-"}
+                </div>
+                <div>
+                  <strong>Dirección:</strong> {selectedCustomer.address || "-"}
+                </div>
+              </Box>
+            )}
+          </Grid>
+
+          {/* Fecha y Remisión */}
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Fecha de venta"
+              type="datetime-local"
+              value={saleDate}
+              onChange={(e) => setSaleDate(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Remisión"
+              value={remisionVenta}
+              onChange={(e) => setRemisionVenta(e.target.value)}
+            />
+          </Grid>
+
+          {/* Selects: Canal, Pago, Tipo */}
+          <Grid item xs={12} md={4}>
+            <Select
+              fullWidth
+              size="small"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              displayEmpty
+            >
+              {CHANNELS.map((opt) => (
+                <MenuItem key={opt} value={opt}>
+                  {opt}
+                </MenuItem>
+              ))}
+            </Select>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Select
+              fullWidth
+              size="small"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              displayEmpty
+            >
+              {PAYMENT_METHODS.map((opt) => (
+                <MenuItem key={opt} value={opt}>
+                  {opt}
+                </MenuItem>
+              ))}
+            </Select>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Select
+              fullWidth
+              size="small"
+              value={transactionType}
+              onChange={(e) => setTransactionType(e.target.value)}
+              displayEmpty
+            >
+              {TRANSACTION_TYPES.map((opt) => (
+                <MenuItem key={opt} value={opt}>
+                  {opt}
+                </MenuItem>
+              ))}
+            </Select>
+          </Grid>
+
+          {transactionType === "Alquiler" && (
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                size="small"
+                type="date"
+                label="Fecha de devolución"
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
+              />
+            </Grid>
+          )}
+        </Grid>
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* LÍNEAS DE PRODUCTO */}
+        <Stack spacing={1}>
+          {items.map((row, idx) => (
+            <Grid container spacing={1} alignItems="center" key={`line-${idx}`}>
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  fullWidth
+                  options={products}
+                  value={row.product}
+                  onChange={(_, p) => handleSelectProduct(idx, p)}
+                  getOptionLabel={(p) =>
+                    p ? `${p.name} — ${p.brand ?? ""}`.trim() : ""
+                  }
+                  renderInput={(params) => (
+                    <TextField {...params} label="Producto" size="small" />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={4} md={2}>
+                <TextField
+                  type="number"
+                  size="small"
+                  label="Cantidad"
+                  value={row.qty}
+                  onChange={(e) =>
+                    updateItem(idx, { qty: Number(e.target.value || 0) })
+                  }
+                  inputProps={{ min: 1 }}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={4} md={2}>
+                <TextField
+                  type="number"
+                  size="small"
+                  label="Precio"
+                  value={row.price}
+                  onChange={(e) =>
+                    updateItem(idx, { price: Number(e.target.value || 0) })
+                  }
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={3} md={1.5}>
+                <TextField
+                  size="small"
+                  label="Total"
+                  value={row.lineTotal.toLocaleString("es-CO", {
+                    style: "currency",
+                    currency: "COP",
+                  })}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={1} md={0.5} sx={{ display: "flex", justifyContent: "end" }}>
+                <Tooltip title="Eliminar línea">
+                  <span>
+                    <IconButton
+                      color="error"
+                      onClick={() => removeItem(idx)}
+                      disabled={items.length === 1}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Grid>
+            </Grid>
+          ))}
+          <Box>
+            <Button
+              startIcon={<AddIcon />}
+              onClick={addItem}
+              variant="outlined"
+              size="small"
+            >
+              Añadir producto
+            </Button>
+          </Box>
+        </Stack>
+
+        <Divider sx={{ my: 2 }} />
+
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Typography variant="subtitle1">
+            Total venta:{" "}
+            <strong>
+              {totalVenta.toLocaleString("es-CO", { style: "currency", currency: "COP" })}
+            </strong>
+          </Typography>
+          <Button variant="contained" startIcon={<SaveIcon />} onClick={submit} disabled={loading}>
+            Guardar venta
+          </Button>
+        </Stack>
+      </Paper>
+
+      {/* HISTORIAL */}
+      <Paper sx={{ p: 2 }}>
+        <Stack direction="row" alignItems="center" spacing={2} mb={1}>
+          <Typography variant="h6">Historial</Typography>
+          <IconButton onClick={loadSales}>
+            {historyLoading ? <CircularProgress size={20} /> : <RefreshIconLite />}
           </IconButton>
         </Stack>
 
-        {/* Total general */}
-        <TextField
-          label="Total general (COP)"
-          fullWidth
-          margin="normal"
-          value={new Intl.NumberFormat('es-CO', {
-            style: 'currency',
-            currency: 'COP',
-          }).format(totalGeneral || 0)}
-          InputProps={{ readOnly: true }}
-        />
+        {sales.length === 0 ? (
+          <Typography color="text.secondary">Sin ventas registradas.</Typography>
+        ) : (
+          <Box sx={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ textAlign: "left" }}>
+                  <th style={th}>Fecha</th>
+                  <th style={th}>Remisión</th>
+                  <th style={th}>Cliente</th>
+                  <th style={th}>Producto</th>
+                  <th style={th}>Cant.</th>
+                  <th style={th}>Canal</th>
+                  <th style={th}>Pago</th>
+                  <th style={th}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sales.map((s) => (
+                  <tr key={s.saleId}>
+                    <td style={td}>
+                      {s.saleDate
+                        ? dayjs(s.saleDate).format("YYYY-MM-DD HH:mm")
+                        : s.createdAt
+                        ? dayjs(s.createdAt).format("YYYY-MM-DD HH:mm")
+                        : "-"}
+                    </td>
+                    <td style={td}>{s.remisionVenta || "-"}</td>
+                    <td style={td}>{s.customerName || s.customerId || "-"}</td>
+                    <td style={td}>{s.productName || s.productId || "-"}</td>
+                    <td style={td}>{s.unitQty ?? "-"}</td>
+                    <td style={td}>{s.channel || "-"}</td>
+                    <td style={td}>{s.paymentMethod || "-"}</td>
+                    <td style={td}>
+                      {typeof s.saleValue === "number"
+                        ? s.saleValue.toLocaleString("es-CO", {
+                            style: "currency",
+                            currency: "COP",
+                          })
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        )}
+      </Paper>
 
-        <Stack direction="row" justifyContent="flex-end" sx={{ mb: 3 }}>
-          <Button
-            variant="contained"
-            onClick={submit}
-            disabled={submitting || !header.saleDate}
-            startIcon={submitting ? <CircularProgress size={18} /> : null}
-          >
-            Guardar ventas
+      {/* SNACKBAR */}
+      <Snackbar
+        open={snack.open}
+        autoHideDuration={3500}
+        onClose={closeSnack}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={closeSnack} severity={snack.sev} variant="filled">
+          {snack.msg}
+        </Alert>
+      </Snackbar>
+
+      {/* DIALOGO CREAR CLIENTE */}
+      <Dialog open={openCreateCustomer} onClose={closeNewCustomer} maxWidth="sm" fullWidth>
+        <DialogTitle>Nuevo cliente</DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2} mt={0.5}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Nombre *"
+                value={newCustomer.firstName}
+                onChange={(e) =>
+                  setNewCustomer((c) => ({ ...c, firstName: e.target.value }))
+                }
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Apellido"
+                value={newCustomer.lastName}
+                onChange={(e) =>
+                  setNewCustomer((c) => ({ ...c, lastName: e.target.value }))
+                }
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Documento"
+                value={newCustomer.documentId}
+                onChange={(e) =>
+                  setNewCustomer((c) => ({ ...c, documentId: e.target.value }))
+                }
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Teléfono"
+                value={newCustomer.phone}
+                onChange={(e) =>
+                  setNewCustomer((c) => ({ ...c, phone: e.target.value }))
+                }
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Email"
+                type="email"
+                value={newCustomer.email}
+                onChange={(e) =>
+                  setNewCustomer((c) => ({ ...c, email: e.target.value }))
+                }
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Ciudad"
+                value={newCustomer.city}
+                onChange={(e) =>
+                  setNewCustomer((c) => ({ ...c, city: e.target.value }))
+                }
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Dirección"
+                value={newCustomer.address}
+                onChange={(e) =>
+                  setNewCustomer((c) => ({ ...c, address: e.target.value }))
+                }
+              />
+            </Grid>
+          </Grid>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+            * El nombre es obligatorio. Debes proporcionar **email** o **documento** (al menos uno).
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeNewCustomer} disabled={creatingCustomer}>
+            Cancelar
           </Button>
-        </Stack>
-
-        {/* Historial de ventas colapsable */}
-        <Box sx={{ mt: 2 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ mb: showSalesTable ? 1 : 0 }}
+          <Button
+            onClick={submitCreateCustomer}
+            variant="contained"
+            startIcon={<PersonAddAlt1Icon />}
+            disabled={creatingCustomer}
           >
-            <Typography variant="h6">
-              Historial de ventas
-            </Typography>
-            <Button
-              size="small"
-              onClick={() => setShowSalesTable(v => !v)}
-            >
-              {showSalesTable ? 'Ocultar' : 'Mostrar'}
-            </Button>
-          </Stack>
+            {creatingCustomer ? "Creando..." : "Crear y seleccionar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+}
 
-          {showSalesTable && (
-            <TableContainer component={Paper}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Fecha</TableCell>
-                    <TableCell>Producto</TableCell>
-                    <TableCell>Transacción</TableCell>
-                    <TableCell>Canal</TableCell>
-                    <TableCell align="right">Unidades</TableCell>
-                    <TableCell align="right">Valor Venta</TableCell>
-                    <TableCell>Pago</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {list.map(s => (
-                    <TableRow key={s.saleId}>
-                      <TableCell>{s.saleDate}</TableCell>
-                      <TableCell>{getProductLabel(s.productId)}</TableCell>
-                      <TableCell>{s.transactionType}</TableCell>
-                      <TableCell>{s.channel}</TableCell>
-                      <TableCell align="right">{s.unitQty}</TableCell>
-                      <TableCell align="right">
-                        {new Intl.NumberFormat('es-CO', {
-                          style: 'currency',
-                          currency: 'COP',
-                        }).format(s.saleValue || 0)}
-                      </TableCell>
-                      <TableCell>{s.paymentMethod}</TableCell>
-                    </TableRow>
-                  ))}
-                  {!loading && !list.length && (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center">
-                        Sin registros
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {loading && (
-                    <TableRow>
-                      <TableCell colSpan={7} align="center">
-                        Cargando…
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Box>
-      </Container>
-    </Box>
+// Estilos de tabla
+const th = { padding: "8px 6px", borderBottom: "1px solid #e0e0e0" };
+const td = { padding: "8px 6px", borderBottom: "1px solid #f0f0f0" };
+
+// Icono liviano de refrescar
+function RefreshIconLite(props) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" {...props} style={{ opacity: 0.8 }}>
+      <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7c2.76 0 5 2.24 5 5a5 5 0 0 1-8.66 3.54l-1.42 1.42A6.99 6.99 0 0 0 19 12c0-1.93-.78-3.68-2.05-4.95z"></path>
+    </svg>
   );
 }
