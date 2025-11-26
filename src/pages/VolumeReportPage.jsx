@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Container, Box, Typography,
   TextField, Button, Stack,
   TableContainer, Paper,
   Table, TableHead, TableRow,
-  TableCell, TableBody
+  TableCell, TableBody, Grid, Card, CardContent
 } from '@mui/material';
 import axiosClient from '../api/axiosClient';
 import {
@@ -14,20 +14,18 @@ import {
 } from 'recharts';
 
 export default function VolumeReportPage() {
-  // === Estados existentes ===
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [estado, setEstado] = useState('');
   const [data, setData] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // === Nueva selección de periodo ===
-  // 'custom' | 'day' | 'week' | 'month'
   const [periodType, setPeriodType] = useState('custom');
-  const [selectedDate, setSelectedDate] = useState('');   // YYYY-MM-DD
-  const [selectedWeek, setSelectedWeek] = useState('');   // YYYY-W## (HTML week)
-  const [selectedMonth, setSelectedMonth] = useState(''); // YYYY-MM
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
 
   const COLORS = [
     '#1976d2', '#dc004e', '#2e7d32',
@@ -35,36 +33,25 @@ export default function VolumeReportPage() {
     '#d32f2f', '#02897b'
   ];
 
-  // === Helpers de fecha ===
   const pad = (n) => String(n).padStart(2, '0');
   const formatYYYYMMDD = (d) =>
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-  /**
-   * Obtiene el lunes (00:00) de una semana ISO dada por year & week,
-   * tomando como input el string "YYYY-W##" de <input type="week">
-   */
   const getMondayFromWeekString = (weekStr) => {
     if (!weekStr || !weekStr.includes('-W')) return null;
     const [yearStr, weekPart] = weekStr.split('-W');
     const year = parseInt(yearStr, 10);
     const week = parseInt(weekPart, 10);
 
-    // Aproximación: 1 de enero + (semana-1)*7 días
     const simple = new Date(year, 0, 1 + (week - 1) * 7);
-    const dayOfWeek = simple.getDay(); // 0=Dom .. 1=Lun .. 6=Sáb
+    const dayOfWeek = simple.getDay();
     const monday = new Date(simple);
-    // Ajuste para llegar a lunes
     const diff = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
     monday.setDate(simple.getDate() + diff);
     monday.setHours(0, 0, 0, 0);
     return monday;
   };
 
-  /**
-   * Calcula el rango final {from, to} basado en periodType y
-   * inputs seleccionados. Mantiene 00:01 a 23:59 según requerimiento.
-   */
   const computeRange = () => {
     if (periodType === 'custom') {
       if (!from || !to) {
@@ -100,17 +87,16 @@ export default function VolumeReportPage() {
       if (!selectedMonth) throw new Error('Selecciona un mes.');
       const [yearStr, monthStr] = selectedMonth.split('-');
       const year = parseInt(yearStr, 10);
-      const monthNum = parseInt(monthStr, 10); // 1..12
+      const monthNum = parseInt(monthStr, 10);
 
       const firstDay = new Date(year, monthNum - 1, 1);
-      const lastDay = new Date(year, monthNum, 0); // día 0 del mes siguiente -> último día del mes
+      const lastDay = new Date(year, monthNum, 0);
 
       const fromFinal = `${formatYYYYMMDD(firstDay)}T00:01`;
       const toFinal = `${formatYYYYMMDD(lastDay)}T23:59`;
       return { fromFinal, toFinal };
     }
 
-    // Fallback
     return { fromFinal: from, toFinal: to };
   };
 
@@ -118,34 +104,39 @@ export default function VolumeReportPage() {
     setLoading(true);
     setError('');
     try {
-      // 1) Construir el rango según el modo elegido
       const { fromFinal, toFinal } = computeRange();
-
-      // 2) Actualizar estados 'from'/'to' para que Export CSV muestre el rango usado
       setFrom(fromFinal);
       setTo(toFinal);
 
-      // 3) Llamar API con los parámetros correctos
       const params = { from: fromFinal, to: toFinal };
       if (estado) params.estado = estado;
 
+      // 1) Volumen por fecha/estado
       const resp = await axiosClient.get('/reports/remissions/volume', { params });
       setData(Array.isArray(resp.data) ? resp.data : []);
+
+      // 2) Resumen (equipos, ingresos, gastos, neto)
+      const respSummary = await axiosClient.get('/reports/remissions/summary', { params });
+      setSummary(respSummary.data);
     } catch (e) {
+      console.error(e);
       setError(e.response?.data?.message || e.message || 'Error generando reporte');
+      setSummary(null);
+      setData([]);
     } finally {
       setLoading(false);
     }
   };
 
   const totalRemisionesSum = data.reduce((sum, d) => sum + (d.totalRemisiones || 0), 0);
-  const totalValorSum     = data.reduce((sum, d) => sum + (d.totalValor || 0), 0);
+  const totalValorSum = data.reduce((sum, d) => sum + (d.totalValor || 0), 0);
 
   const valorByEstado = data.reduce((acc, d) => {
     const key = d.estado || '—';
     acc[key] = (acc[key] || 0) + (d.totalValor || 0);
     return acc;
   }, {});
+
   const pieDataEstado = Object.entries(valorByEstado)
     .map(([name, value]) => ({ name, value }));
 
@@ -155,8 +146,8 @@ export default function VolumeReportPage() {
     const estadoLabel = estado || 'Ninguno';
 
     const now = new Date();
-    const pad2 = n => String(n).padStart(2, '0');
-    const filename = `Reporte_Volumen_${now.getFullYear()}_${pad2(now.getMonth()+1)}_${pad2(now.getDate())}_${pad2(now.getHours())}_${pad2(now.getMinutes())}_${pad2(now.getSeconds())}.csv`;
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const filename = `Reporte_Volumen_${now.getFullYear()}_${pad2(now.getMonth() + 1)}_${pad2(now.getDate())}_${pad2(now.getHours())}_${pad2(now.getMinutes())}_${pad2(now.getSeconds())}.csv`;
 
     const metaLines = [
       `Rango desde: ${from}`,
@@ -169,35 +160,41 @@ export default function VolumeReportPage() {
 
     const rows = data.map(d => {
       const fecha = d.fecha || '';
-      const est    = d.estado || '';
-      const tr     = d.totalRemisiones || 0;
-      const tvStr  = `$${Math.round(d.totalValor || 0)}`;
+      const est = d.estado || '';
+      const tr = d.totalRemisiones || 0;
+      const tvStr = `${Math.round(d.totalValor || 0)}`;
       return [fecha, est, tr, tvStr].join(',');
     }).join('\n') + '\n';
 
     const totalRow = [
       'Totales', '',
       totalRemisionesSum,
-      `$${Math.round(totalValorSum)}`
+      `${Math.round(totalValorSum)}`
     ].join(',') + '\n';
 
     const csvContent = metaLines + header + rows + totalRow;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href     = url;
+    link.href = url;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP'
+    }).format(value || 0);
+
   return (
     <Container
       maxWidth="lg"
       sx={{
         mt: 4,
-        pb: theme => `calc(${theme.spacing(4)} + 80px)`
+        pb: (theme) => `calc(${theme.spacing(4)} + 80px)`
       }}
     >
       <Typography variant="h4" gutterBottom>
@@ -210,7 +207,6 @@ export default function VolumeReportPage() {
         sx={{ mb: 2 }}
         alignItems="center"
       >
-        {/* Nuevo selector de periodo */}
         <TextField
           select
           label="Periodo"
@@ -226,7 +222,6 @@ export default function VolumeReportPage() {
           <option value="month">Mes</option>
         </TextField>
 
-        {/* Inputs según el periodo seleccionado */}
         {periodType === 'custom' && (
           <>
             <TextField
@@ -315,7 +310,102 @@ export default function VolumeReportPage() {
         </Button>
       </Stack>
 
-      {error && <Typography color="error">{error}</Typography>}
+      {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
+
+      {/* KPIs de resumen: equipos, ingresos, gastos, neto */}
+      {summary && (
+        <Box sx={{ mb: 4 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">Equipos Pendientes</Typography>
+                  <Typography variant="h6">{summary.equiposPendientes}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Valor equipos: {formatCurrency(summary.valorEquiposPendientes)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">Equipos Entregados</Typography>
+                  <Typography variant="h6">{summary.equiposEntregados}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Valor equipos: {formatCurrency(summary.valorEquiposEntregados)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">Ingresos Remisiones</Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(summary.ingresosRemisiones)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Pendientes = abono, Entregadas = total
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">Ingresos por Ventas</Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(summary.ingresosVentas)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">Ingresos Totales Reales</Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(summary.ingresosTotales)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Remisiones + Ventas
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">Total Gastos</Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(summary.totalGastos)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ bgcolor: 'success.main', color: 'common.white' }}>
+                <CardContent>
+                  <Typography variant="subtitle2">Ingreso Real Neto</Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(summary.ingresoNeto)}
+                  </Typography>
+                  <Typography variant="body2">
+                    Ingresos reales - gastos
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Box>
+      )}
 
       {data.length > 0 && (
         <>
@@ -358,10 +448,7 @@ export default function VolumeReportPage() {
                       {(row.totalRemisiones || 0).toLocaleString('es-CO')}
                     </TableCell>
                     <TableCell align="right">
-                      {new Intl.NumberFormat('es-CO', {
-                        style: 'currency',
-                        currency: 'COP'
-                      }).format(row.totalValor || 0)}
+                      {formatCurrency(row.totalValor || 0)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -372,10 +459,7 @@ export default function VolumeReportPage() {
                     <strong>{totalRemisionesSum.toLocaleString('es-CO')}</strong>
                   </TableCell>
                   <TableCell align="right">
-                    <strong>{new Intl.NumberFormat('es-CO', {
-                      style: 'currency',
-                      currency: 'COP'
-                    }).format(totalValorSum)}</strong>
+                    <strong>{formatCurrency(totalValorSum)}</strong>
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -385,7 +469,7 @@ export default function VolumeReportPage() {
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
             <Box sx={{ width: 500, height: 300 }}>
               <Typography align="center" gutterBottom>
-                Participación por Estado (Valor)
+                Participación por Estado (Valor remisiones)
               </Typography>
               <ResponsiveContainer>
                 <PieChart>
@@ -403,7 +487,9 @@ export default function VolumeReportPage() {
                       />
                     ))}
                   </Pie>
-                  <RechartsTooltip formatter={value => `$${Math.round(value)}`} />
+                  <RechartsTooltip
+                    formatter={value => formatCurrency(value)}
+                  />
                   <Legend verticalAlign="bottom" height={36} />
                 </PieChart>
               </ResponsiveContainer>
