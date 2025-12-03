@@ -1,37 +1,28 @@
 import { useState } from 'react';
 import {
-  Container, Box, Typography,
-  TextField, Button, Stack,
-  TableContainer, Paper,
-  Table, TableHead, TableRow,
-  TableCell, TableBody, Grid, Card, CardContent
+  Container,
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Stack,
+  Grid,
+  Card,
+  CardContent,
 } from '@mui/material';
 import axiosClient from '../api/axiosClient';
-import {
-  LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
-} from 'recharts';
 
 export default function VolumeReportPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [estado, setEstado] = useState('');
-  const [data, setData] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
   const [periodType, setPeriodType] = useState('custom');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedWeek, setSelectedWeek] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
 
-  const COLORS = [
-    '#1976d2', '#dc004e', '#2e7d32',
-    '#ed6c02', '#0288d1', '#9c27b0',
-    '#d32f2f', '#02897b'
-  ];
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const pad = (n) => String(n).padStart(2, '0');
   const formatYYYYMMDD = (d) =>
@@ -46,7 +37,7 @@ export default function VolumeReportPage() {
     const simple = new Date(year, 0, 1 + (week - 1) * 7);
     const dayOfWeek = simple.getDay();
     const monday = new Date(simple);
-    const diff = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     monday.setDate(simple.getDate() + diff);
     monday.setHours(0, 0, 0, 0);
     return monday;
@@ -109,84 +100,27 @@ export default function VolumeReportPage() {
       setTo(toFinal);
 
       const params = { from: fromFinal, to: toFinal };
-      if (estado) params.estado = estado;
 
-      // 1) Volumen por fecha/estado
-      const resp = await axiosClient.get('/reports/remissions/volume', { params });
-      setData(Array.isArray(resp.data) ? resp.data : []);
-
-      // 2) Resumen (equipos, ingresos, gastos, neto)
-      const respSummary = await axiosClient.get('/reports/remissions/summary', { params });
+      // Llamamos al endpoint único de KPIs
+      const respSummary = await axiosClient.get('/reports/remissions/summary', {
+        params,
+      });
       setSummary(respSummary.data);
     } catch (e) {
       console.error(e);
-      setError(e.response?.data?.message || e.message || 'Error generando reporte');
+      setError(
+        e.response?.data?.message || e.message || 'Error generando reporte de KPIs'
+      );
       setSummary(null);
-      setData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const totalRemisionesSum = data.reduce((sum, d) => sum + (d.totalRemisiones || 0), 0);
-  const totalValorSum = data.reduce((sum, d) => sum + (d.totalValor || 0), 0);
-
-  const valorByEstado = data.reduce((acc, d) => {
-    const key = d.estado || '—';
-    acc[key] = (acc[key] || 0) + (d.totalValor || 0);
-    return acc;
-  }, {});
-
-  const pieDataEstado = Object.entries(valorByEstado)
-    .map(([name, value]) => ({ name, value }));
-
-  const exportCsv = () => {
-    if (!data.length) return;
-
-    const estadoLabel = estado || 'Ninguno';
-
-    const now = new Date();
-    const pad2 = (n) => String(n).padStart(2, '0');
-    const filename = `Reporte_Volumen_${now.getFullYear()}_${pad2(now.getMonth() + 1)}_${pad2(now.getDate())}_${pad2(now.getHours())}_${pad2(now.getMinutes())}_${pad2(now.getSeconds())}.csv`;
-
-    const metaLines = [
-      `Rango desde: ${from}`,
-      `Rango hasta: ${to}`,
-      `Filtro Estado: ${estadoLabel}`,
-      ''
-    ].join('\n') + '\n';
-
-    const header = 'Fecha,Estado,Total remisiones,Total Valor\n';
-
-    const rows = data.map(d => {
-      const fecha = d.fecha || '';
-      const est = d.estado || '';
-      const tr = d.totalRemisiones || 0;
-      const tvStr = `${Math.round(d.totalValor || 0)}`;
-      return [fecha, est, tr, tvStr].join(',');
-    }).join('\n') + '\n';
-
-    const totalRow = [
-      'Totales', '',
-      totalRemisionesSum,
-      `${Math.round(totalValorSum)}`
-    ].join(',') + '\n';
-
-    const csvContent = metaLines + header + rows + totalRow;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const formatCurrency = (value) =>
     new Intl.NumberFormat('es-CO', {
       style: 'currency',
-      currency: 'COP'
+      currency: 'COP',
     }).format(value || 0);
 
   return (
@@ -194,13 +128,14 @@ export default function VolumeReportPage() {
       maxWidth="lg"
       sx={{
         mt: 4,
-        pb: (theme) => `calc(${theme.spacing(4)} + 80px)`
+        pb: (theme) => `calc(${theme.spacing(4)} + 80px)`,
       }}
     >
       <Typography variant="h4" gutterBottom>
-        Reporte de Volumen de Remisiones
+        Reporte de KPIs (Remisiones &amp; Ventas)
       </Typography>
 
+      {/* Filtros de fecha */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
@@ -211,7 +146,7 @@ export default function VolumeReportPage() {
           select
           label="Periodo"
           value={periodType}
-          onChange={e => setPeriodType(e.target.value)}
+          onChange={(e) => setPeriodType(e.target.value)}
           SelectProps={{ native: true }}
           InputLabelProps={{ shrink: true }}
           fullWidth
@@ -228,7 +163,7 @@ export default function VolumeReportPage() {
               label="Desde"
               type="datetime-local"
               value={from}
-              onChange={e => setFrom(e.target.value)}
+              onChange={(e) => setFrom(e.target.value)}
               InputLabelProps={{ shrink: true }}
               fullWidth
             />
@@ -236,7 +171,7 @@ export default function VolumeReportPage() {
               label="Hasta"
               type="datetime-local"
               value={to}
-              onChange={e => setTo(e.target.value)}
+              onChange={(e) => setTo(e.target.value)}
               InputLabelProps={{ shrink: true }}
               fullWidth
             />
@@ -248,7 +183,7 @@ export default function VolumeReportPage() {
             label="Fecha"
             type="date"
             value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
+            onChange={(e) => setSelectedDate(e.target.value)}
             InputLabelProps={{ shrink: true }}
             fullWidth
           />
@@ -259,7 +194,7 @@ export default function VolumeReportPage() {
             label="Semana"
             type="week"
             value={selectedWeek}
-            onChange={e => setSelectedWeek(e.target.value)}
+            onChange={(e) => setSelectedWeek(e.target.value)}
             InputLabelProps={{ shrink: true }}
             fullWidth
           />
@@ -270,25 +205,11 @@ export default function VolumeReportPage() {
             label="Mes"
             type="month"
             value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
+            onChange={(e) => setSelectedMonth(e.target.value)}
             InputLabelProps={{ shrink: true }}
             fullWidth
           />
         )}
-
-        <TextField
-          select
-          label="Estado"
-          value={estado}
-          onChange={e => setEstado(e.target.value)}
-          SelectProps={{ native: true }}
-          InputLabelProps={{ shrink: true }}
-          fullWidth
-        >
-          <option value="">Todos</option>
-          <option value="Entregado">Entregado</option>
-          <option value="Pendiente">Pendiente</option>
-        </TextField>
 
         <Button
           variant="contained"
@@ -299,203 +220,208 @@ export default function VolumeReportPage() {
         >
           {loading ? 'Generando…' : 'Generar'}
         </Button>
-        <Button
-          variant="outlined"
-          onClick={exportCsv}
-          disabled={!data.length}
-          size="large"
-          sx={{ minWidth: 120 }}
-        >
-          Exportar CSV
-        </Button>
       </Stack>
 
-      {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      )}
 
-      {/* KPIs de resumen: equipos, ingresos, gastos, neto */}
+      {/* KPIs */}
       {summary && (
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ mt: 3 }}>
+          {/* Sección Remisiones */}
+          <Typography variant="h5" gutterBottom>
+            Remisiones
+          </Typography>
+          <Grid container spacing={2} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Número de remisiones
+                  </Typography>
+                  <Typography variant="h6">
+                    {summary.remisiones?.totalRemisiones ?? 0}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">Equipos totales</Typography>
+                  <Typography variant="h6">
+                    {summary.remisiones?.totalEquipos ?? 0}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Ingresos por remisiones
+                  </Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(
+                      summary.remisiones?.totalValorRemisiones ?? 0
+                    )}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Ticket promedio por remisión
+                  </Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(
+                      summary.remisiones?.ticketPromedioRemision ?? 0
+                    )}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Unidades promedio por remisión
+                  </Typography>
+                  <Typography variant="h6">
+                    {summary.remisiones?.unidadesPromedioPorRemision?.toFixed
+                      ? summary.remisiones.unidadesPromedioPorRemision.toFixed(2)
+                      : summary.remisiones?.unidadesPromedioPorRemision ?? 0}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {/* Sección Ventas */}
+          <Typography variant="h5" gutterBottom>
+            Ventas
+          </Typography>
+          <Grid container spacing={2} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Número de transacciones
+                  </Typography>
+                  <Typography variant="h6">
+                    {summary.ventas?.totalTransacciones ?? 0}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Productos totales (unidades)
+                  </Typography>
+                  <Typography variant="h6">
+                    {summary.ventas?.productosTotales ?? 0}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Ingresos por ventas
+                  </Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(summary.ventas?.totalVentas ?? 0)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Ticket promedio por venta
+                  </Typography>
+                  <Typography variant="h6">
+                    {formatCurrency(
+                      summary.ventas?.ticketPromedioVenta ?? 0
+                    )}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Card>
+                <CardContent>
+                  <Typography variant="subtitle2">
+                    Unidades promedio por venta
+                  </Typography>
+                  <Typography variant="h6">
+                    {summary.ventas?.unidadesPromedioPorVenta?.toFixed
+                      ? summary.ventas.unidadesPromedioPorVenta.toFixed(2)
+                      : summary.ventas?.unidadesPromedioPorVenta ?? 0}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {/* Sección Global */}
+          <Typography variant="h5" gutterBottom>
+            Global
+          </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={4}>
               <Card>
                 <CardContent>
-                  <Typography variant="subtitle2">Equipos Pendientes</Typography>
-                  <Typography variant="h6">{summary.equiposPendientes}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Valor equipos: {formatCurrency(summary.valorEquiposPendientes)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="subtitle2">Equipos Entregados</Typography>
-                  <Typography variant="h6">{summary.equiposEntregados}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Valor equipos: {formatCurrency(summary.valorEquiposEntregados)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="subtitle2">Ingresos Remisiones</Typography>
+                  <Typography variant="subtitle2">Ingresos totales</Typography>
                   <Typography variant="h6">
-                    {formatCurrency(summary.ingresosRemisiones)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Pendientes = abono, Entregadas = total
+                    {formatCurrency(summary.global?.ingresosTotales ?? 0)}
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={4}>
               <Card>
                 <CardContent>
-                  <Typography variant="subtitle2">Ingresos por Ventas</Typography>
+                  <Typography variant="subtitle2">Total gastos</Typography>
                   <Typography variant="h6">
-                    {formatCurrency(summary.ingresosVentas)}
+                    {formatCurrency(summary.global?.totalGastos ?? 0)}
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="subtitle2">Ingresos Totales Reales</Typography>
-                  <Typography variant="h6">
-                    {formatCurrency(summary.ingresosTotales)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Remisiones + Ventas
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Typography variant="subtitle2">Total Gastos</Typography>
-                  <Typography variant="h6">
-                    {formatCurrency(summary.totalGastos)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={4}>
               <Card sx={{ bgcolor: 'success.main', color: 'common.white' }}>
                 <CardContent>
-                  <Typography variant="subtitle2">Ingreso Real Neto</Typography>
-                  <Typography variant="h6">
-                    {formatCurrency(summary.ingresoNeto)}
+                  <Typography variant="subtitle2">
+                    Ingreso real neto
                   </Typography>
-                  <Typography variant="body2">
-                    Ingresos reales - gastos
+                  <Typography variant="h6">
+                    {formatCurrency(summary.global?.ingresoNeto ?? 0)}
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
         </Box>
-      )}
-
-      {data.length > 0 && (
-        <>
-          <Box sx={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <LineChart
-                data={data}
-                margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="fecha" />
-                <YAxis />
-                <RechartsTooltip />
-                <Line
-                  type="monotone"
-                  dataKey="totalRemisiones"
-                  stroke="#1976d2"
-                  name="Total remisiones"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </Box>
-
-          <TableContainer component={Paper} sx={{ mt: 3 }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell align="right">Total remisiones</TableCell>
-                  <TableCell align="right">Total Valor</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {data.map(row => (
-                  <TableRow key={`${row.fecha}-${row.estado}`}>
-                    <TableCell>{row.fecha}</TableCell>
-                    <TableCell>{row.estado}</TableCell>
-                    <TableCell align="right">
-                      {(row.totalRemisiones || 0).toLocaleString('es-CO')}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(row.totalValor || 0)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow>
-                  <TableCell><strong>Totales</strong></TableCell>
-                  <TableCell />
-                  <TableCell align="right">
-                    <strong>{totalRemisionesSum.toLocaleString('es-CO')}</strong>
-                  </TableCell>
-                  <TableCell align="right">
-                    <strong>{formatCurrency(totalValorSum)}</strong>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-            <Box sx={{ width: 500, height: 300 }}>
-              <Typography align="center" gutterBottom>
-                Participación por Estado (Valor remisiones)
-              </Typography>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={pieDataEstado}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={100}
-                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                  >
-                    {pieDataEstado.map((_, index) => (
-                      <Cell
-                        key={`cell-estado-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip
-                    formatter={value => formatCurrency(value)}
-                  />
-                  <Legend verticalAlign="bottom" height={36} />
-                </PieChart>
-              </ResponsiveContainer>
-            </Box>
-          </Box>
-        </>
       )}
     </Container>
   );
