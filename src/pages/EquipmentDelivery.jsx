@@ -104,7 +104,7 @@ export default function EquipmentDelivery() {
   const requiresPayment = !isGarantia && !remissionData?.fechaSalida && saldo > 0;
 
   return (
-    <Box sx={{ minHeight: '100vh', py: 4, background: '#f5f5f5' }}>
+    <Box sx={{ py: 4 }}>
       <Container maxWidth="sm" sx={{ bgcolor: '#fff', p: 4, borderRadius: 2 }}>
         <Typography variant="h5" align="center" gutterBottom>
           Entrega de equipo / Garantía

@@ -119,7 +119,7 @@ export default function ProductsPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', py: 4, background: '#f5f5f5' }}>
+    <Box sx={{ py: 4 }}>
       <Container maxWidth="md" sx={{ bgcolor: '#fff', p: 4, borderRadius: 2 }}>
         <Typography variant="h5" align="center" gutterBottom>
           Maestro de Productos

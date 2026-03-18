@@ -15,6 +15,7 @@ import MedicalLogin from './pages/MedicalLogin';
 import Remisiones from './pages/Remisiones';
 import SearchRemission from './pages/SearchRemission';
 import ServicioTecnico from './pages/ServicioTecnico';
+import ServicioTecnicoResumen from './pages/ServicioTecnicoResumen';
 import VolumeReportPage from './pages/VolumeReportPage';
 
 import SearchSpecialists from './pages/SearchSpecialists';
@@ -53,6 +54,7 @@ function App() {
             <Route path="/remisiones" element={<Remisiones />} />
             <Route path="/entrega-equipo" element={<SearchRemission />} />
             <Route path="/servicio-tecnico" element={<ServicioTecnico />} />
+            <Route path="/servicio-tecnico-resumen" element={<ServicioTecnicoResumen />} />
             <Route path="/reports/volume" element={<VolumeReportPage />} />
 
             {/* 👇 Mover acá para que usen MedicalNavbar */}

@@ -12,6 +12,15 @@ import {
   MenuItem,
   Alert,
   Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  CircularProgress,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
@@ -19,12 +28,64 @@ import logo from '../assets/Muneras_logo4.png';
 
 export default function MedicalNavbar() {
   const [openExpense, setOpenExpense] = useState(false);
+  const [openExpenseList, setOpenExpenseList] = useState(false);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Efectivo');
   const [expenseDate, setExpenseDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loadingExpenses, setLoadingExpenses] = useState(false);
+  const [expenses, setExpenses] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+    }).format(value || 0);
+
+  const formatDateTime = (value) => {
+    if (!value) return '-';
+    return new Intl.DateTimeFormat('es-CO', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value));
+  };
+
+  const getExpensesRange = () => {
+    const now = new Date();
+    const from = new Date();
+    from.setFullYear(now.getFullYear() - 1);
+
+    const toIso = now.toISOString().slice(0, 19);
+    const fromIso = from.toISOString().slice(0, 19);
+
+    return { fromIso, toIso };
+  };
+
+  const fetchExpenses = async () => {
+    setLoadingExpenses(true);
+    try {
+      const { fromIso, toIso } = getExpensesRange();
+      const res = await axiosClient.get('/expenses', {
+        params: {
+          from: fromIso,
+          to: toIso,
+        },
+      });
+      setExpenses(res.data || []);
+    } catch (e) {
+      console.error(e);
+      setSnackbar({
+        open: true,
+        message: 'No fue posible cargar la lista de gastos.',
+        severity: 'error',
+      });
+      setExpenses([]);
+    } finally {
+      setLoadingExpenses(false);
+    }
+  };
 
   // Inicializar fecha por defecto cuando se abre el diálogo
   const handleOpenExpense = () => {
@@ -42,6 +103,11 @@ export default function MedicalNavbar() {
   const handleCloseExpense = () => {
     if (saving) return;
     setOpenExpense(false);
+  };
+
+  const handleOpenExpenseList = async () => {
+    setOpenExpenseList(true);
+    await fetchExpenses();
   };
 
   const handleSaveExpense = async () => {
@@ -88,6 +154,9 @@ export default function MedicalNavbar() {
       setAmount('');
       setPaymentMethod('Efectivo');
       setOpenExpense(false);
+      if (openExpenseList) {
+        await fetchExpenses();
+      }
     } catch (e) {
       console.error(e);
       setSnackbar({
@@ -102,8 +171,8 @@ export default function MedicalNavbar() {
 
   return (
     <>
-      <AppBar position="static">
-        <Toolbar>
+      <AppBar position="static" sx={{ mb: 2 }}>
+        <Toolbar sx={{ py: 0.5 }}>
           <Box
             sx={{
               display: 'flex',
@@ -123,6 +192,9 @@ export default function MedicalNavbar() {
             <Button component={Link} to="/servicio-tecnico" color="inherit">
               Servicio Técnico
             </Button>
+            <Button component={Link} to="/servicio-tecnico-resumen" color="inherit">
+              Resumen Técnico
+            </Button>
             <Button component={Link} to="/reports/volume" color="inherit">
               Reporte Volumen
             </Button>
@@ -137,10 +209,14 @@ export default function MedicalNavbar() {
 
             {/* 🆕 Botón de Gasto (abre diálogo) */}
             <Button
-              color="secondary"
               variant="contained"
               onClick={handleOpenExpense}
-              sx={{ ml: { xs: 0, sm: 2 } }}
+              sx={{
+                ml: { xs: 0, sm: 2 },
+                bgcolor: '#0ea5e9',
+                color: '#ffffff',
+                '&:hover': { bgcolor: '#0284c7' },
+              }}
             >
               Registrar gasto
             </Button>
@@ -208,6 +284,9 @@ export default function MedicalNavbar() {
           </Alert>
         </DialogContent>
         <DialogActions>
+          <Button onClick={handleOpenExpenseList} disabled={saving}>
+            Ver gastos
+          </Button>
           <Button onClick={handleCloseExpense} disabled={saving}>
             Cancelar
           </Button>
@@ -217,6 +296,69 @@ export default function MedicalNavbar() {
             disabled={saving}
           >
             {saving ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openExpenseList}
+        onClose={() => setOpenExpenseList(false)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogTitle>Detalle de gastos</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          {loadingExpenses ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+              <CircularProgress size={30} />
+            </Box>
+          ) : (
+            <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Fecha</TableCell>
+                    <TableCell>Descripción</TableCell>
+                    <TableCell>Método de pago</TableCell>
+                    <TableCell align="right">Valor</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {expenses.length > 0 ? (
+                    expenses.map((expense) => (
+                      <TableRow key={expense.id} hover>
+                        <TableCell>{formatDateTime(expense.expenseDate)}</TableCell>
+                        <TableCell>{expense.description}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={expense.paymentMethod || 'Sin definir'}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          {formatCurrency(expense.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center">
+                        No hay gastos registrados en el periodo consultado.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={fetchExpenses} disabled={loadingExpenses}>
+            Actualizar
+          </Button>
+          <Button variant="contained" onClick={() => setOpenExpenseList(false)}>
+            Cerrar
           </Button>
         </DialogActions>
       </Dialog>
