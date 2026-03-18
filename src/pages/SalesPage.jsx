@@ -167,9 +167,10 @@ export default function SalesPage() {
       }
 
       const payload = {
+        // Enviamos fecha local sin zona para evitar corrimientos de día/mes en LocalDateTime.
         saleDate: dayjs(saleDate).isValid()
-          ? dayjs(saleDate).toISOString()
-          : dayjs().toISOString(),
+          ? dayjs(saleDate).format("YYYY-MM-DDTHH:mm:ss")
+          : dayjs().format("YYYY-MM-DDTHH:mm:ss"),
         remisionVenta: remisionVenta.trim(),
         transactionType,
         productId: lines[0].productId, // compat con BE
@@ -518,6 +519,7 @@ export default function SalesPage() {
                   <th style={th}>Cliente</th>
                   <th style={th}>Producto</th>
                   <th style={th}>Cant.</th>
+                  <th style={th}>Tipo</th>
                   <th style={th}>Canal</th>
                   <th style={th}>Pago</th>
                   <th style={th}>Total</th>
@@ -527,16 +529,13 @@ export default function SalesPage() {
                 {sales.map((s) => (
                   <tr key={s.saleId}>
                     <td style={td}>
-                      {s.saleDate
-                        ? dayjs(s.saleDate).format("YYYY-MM-DD HH:mm")
-                        : s.createdAt
-                        ? dayjs(s.createdAt).format("YYYY-MM-DD HH:mm")
-                        : "-"}
+                      {s.saleDate ? dayjs(s.saleDate).format("YYYY-MM-DD HH:mm") : "-"}
                     </td>
                     <td style={td}>{s.remisionVenta || "-"}</td>
                     <td style={td}>{s.customerName || s.customerId || "-"}</td>
                     <td style={td}>{s.productName || s.productId || "-"}</td>
                     <td style={td}>{s.unitQty ?? "-"}</td>
+                    <td style={td}>{s.transactionType || "-"}</td>
                     <td style={td}>{s.channel || "-"}</td>
                     <td style={td}>{s.paymentMethod || "-"}</td>
                     <td style={td}>
