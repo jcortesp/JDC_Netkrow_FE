@@ -109,10 +109,17 @@ export default function ServicioTecnico() {
     const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const encoded = encodeURIComponent(message);
     
-    // Si hay celular, agregarlo a la URL
-    const celular = remisionData?.celular ? remisionData.celular.replace(/\D/g, '') : null;
-    let whatsappUrl;
+    // Preparar celular: remover espacios, caracteres especiales, + inicial
+    let celular = (remisionData?.celular || '').trim();
+    if (celular) {
+      celular = celular.replace(/\s+/g, '').replace(/[^\d]/g, '');
+      // Si no comienza con 57 (código de Colombia), agregarlo
+      if (celular && !celular.startsWith('57')) {
+        celular = '57' + celular;
+      }
+    }
     
+    let whatsappUrl;
     if (isMobile) {
       whatsappUrl = celular
         ? `https://wa.me/${celular}?text=${encoded}`
