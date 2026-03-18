@@ -373,6 +373,12 @@ export default function SearchRemission() {
               <Grid item xs={8}>
                 {new Date(remissionData.createdAt).toLocaleString()}
               </Grid>
+              <Grid item xs={4}>
+                <strong>Celular:</strong>
+              </Grid>
+              <Grid item xs={8}>
+                {remissionData.celular || 'No registrado'}
+              </Grid>
 
               {!remissionData.remissionId.endsWith('-G') && (
                 <>

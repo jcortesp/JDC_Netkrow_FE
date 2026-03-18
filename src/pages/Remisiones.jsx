@@ -48,6 +48,7 @@ const EQUIPO_OPTS = [
 export default function Remisiones() {
   const initialForm = {
     remissionId: '',
+    celular: '',
     totalValue: '',         // se muestra como solo lectura
     depositValue: '',
     depositMethod: ''
@@ -125,6 +126,7 @@ export default function Remisiones() {
       // 1) Crear remisión con total calculado
       const payloadRem = {
         remissionId: formValues.remissionId,
+        celular: formValues.celular || null,
         totalValue: totalCalculado,
         depositValue: abono,
         metodoAbono: formValues.depositMethod, // si tu backend espera depositMethod, cambia aquí
@@ -224,6 +226,15 @@ export default function Remisiones() {
             onChange={handleChangeForm}
             fullWidth
             required
+          />
+
+          <TextField
+            label="Celular del cliente"
+            name="celular"
+            value={formValues.celular}
+            onChange={handleChangeForm}
+            fullWidth
+            placeholder="Ej: +573001234567"
           />
 
           {/* Lista dinámica de equipos */}

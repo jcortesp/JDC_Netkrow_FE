@@ -108,9 +108,21 @@ export default function ServicioTecnico() {
 
     const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const encoded = encodeURIComponent(message);
-    const whatsappUrl = isMobile
-      ? `https://wa.me/?text=${encoded}`
-      : `https://web.whatsapp.com/send?text=${encoded}`;
+    
+    // Si hay celular, agregarlo a la URL
+    const celular = remisionData?.celular ? remisionData.celular.replace(/\D/g, '') : null;
+    let whatsappUrl;
+    
+    if (isMobile) {
+      whatsappUrl = celular
+        ? `https://wa.me/${celular}?text=${encoded}`
+        : `https://wa.me/?text=${encoded}`;
+    } else {
+      whatsappUrl = celular
+        ? `https://web.whatsapp.com/send?phone=${celular}&text=${encoded}`
+        : `https://web.whatsapp.com/send?text=${encoded}`;
+    }
+    
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
