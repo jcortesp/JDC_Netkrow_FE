@@ -92,6 +92,24 @@ export default function ServicioTecnico() {
     }
   };
 
+  const handleSendWhatsApp = (record) => {
+    const message = [
+      'Hola, te compartimos el estado de tu servicio tecnico.',
+      `Remision: ${remissionId || '-'}`,
+      `Equipo: ${record?.equipo || '-'}`,
+      `Marca: ${record?.marca || '-'}`,
+      `Serial: ${record?.serial || '-'}`,
+      `Revision: ${record?.revision || '-'}`,
+      `Mantenimiento: ${record?.mantenimiento || '-'}`,
+      `Limpieza: ${record?.limpieza || '-'}`,
+      `Calibracion: ${record?.calibracion || '-'}`,
+      `Notas: ${record?.notasDiagnostico || '-'}`,
+    ].join('\n');
+
+    const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const readOnly = Boolean(remisionData?.fechaSalida);
 
   return (
@@ -167,6 +185,7 @@ export default function ServicioTecnico() {
                       e.preventDefault();
                       handleUpdate(rec.id, rec);
                     }}
+                    onSendWhatsApp={handleSendWhatsApp}
                     error={error}
                     readOnly={readOnly}
                   />
@@ -202,6 +221,7 @@ export default function ServicioTecnico() {
                     e.preventDefault();
                     handleCreate(newRecord);
                   }}
+                  onSendWhatsApp={handleSendWhatsApp}
                   error={error}
                   readOnly={false}
                 />

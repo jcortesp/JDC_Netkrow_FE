@@ -12,6 +12,7 @@ export default function TechnicalRecordForm({
   form,
   onChange,
   onSubmit,
+  onSendWhatsApp,
   readOnly = false,
   error = ''
 }) {
@@ -198,9 +199,19 @@ export default function TechnicalRecordForm({
         />
 
         {!readOnly && (
-          <Button type="submit" variant="contained">
-            Guardar
-          </Button>
+          <>
+            <Button type="submit" variant="contained">
+              Guardar
+            </Button>
+            <Button
+              type="button"
+              variant="contained"
+              color="success"
+              onClick={() => onSendWhatsApp?.(form)}
+            >
+              Enviar por WhatsApp
+            </Button>
+          </>
         )}
       </Stack>
     </Box>
