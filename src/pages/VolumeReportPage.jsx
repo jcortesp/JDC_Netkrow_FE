@@ -11,6 +11,14 @@ import {
   Grid,
   Card,
   CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
 } from '@mui/material';
 import axiosClient from '../api/axiosClient';
 
@@ -49,6 +57,7 @@ export default function VolumeReportPage() {
 
   const [summary, setSummary] = useState(null);
   const [monthly, setMonthly] = useState(null);
+  const [expenses, setExpenses] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -146,6 +155,11 @@ export default function VolumeReportPage() {
         "/reports/remissions/monthly"
       );
 
+      const respExpenses = await axiosClient.get(
+        "/expenses",
+        { params }
+      );
+
       const remMapped = respMonthly.data.remisiones.map((m) => ({
         mes: formatMonthLabel(m.year, m.month),
         ingresos: m.ingresosRemisiones,
@@ -168,11 +182,13 @@ export default function VolumeReportPage() {
         ventas: salesMapped,
         global: globalMapped,
       });
+      setExpenses(respExpenses.data || []);
     } catch (e) {
       console.error(e);
       setError("Error generando el reporte");
       setSummary(null);
       setMonthly(null);
+      setExpenses([]);
     } finally {
       setLoading(false);
     }
@@ -183,6 +199,14 @@ export default function VolumeReportPage() {
       style: "currency",
       currency: "COP",
     }).format(value || 0);
+
+  const formatDateTime = (value) => {
+    if (!value) return "-";
+    return new Intl.DateTimeFormat("es-CO", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  };
 
   // ====================================
   // RENDER
@@ -525,6 +549,51 @@ export default function VolumeReportPage() {
               </Box>
             </Box>
           )}
+
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>
+              Detalle de gastos del periodo
+            </Typography>
+
+            <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Fecha</TableCell>
+                    <TableCell>Descripción</TableCell>
+                    <TableCell>Método de pago</TableCell>
+                    <TableCell align="right">Valor</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {expenses.length > 0 ? (
+                    expenses.map((expense) => (
+                      <TableRow key={expense.id} hover>
+                        <TableCell>{formatDateTime(expense.expenseDate)}</TableCell>
+                        <TableCell>{expense.description}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={expense.paymentMethod || "Sin definir"}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          {formatCurrency(expense.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center">
+                        No hay gastos registrados en el rango seleccionado.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
         </Box>
       )}
     </Container>
