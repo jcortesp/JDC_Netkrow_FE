@@ -106,7 +106,11 @@ export default function ServicioTecnico() {
       `Notas: ${record?.notasDiagnostico || '-'}`,
     ].join('\n');
 
-    const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const encoded = encodeURIComponent(message);
+    const whatsappUrl = isMobile
+      ? `https://wa.me/?text=${encoded}`
+      : `https://web.whatsapp.com/send?text=${encoded}`;
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
