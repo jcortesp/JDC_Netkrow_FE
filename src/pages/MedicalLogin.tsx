@@ -26,7 +26,7 @@ export default function MedicalLogin() {
   // Pre-calentamiento: despierta el backend en cuanto carga la pantalla de login,
   // para que cuando el usuario presione "Ingresar" el servidor ya esté listo.
   useEffect(() => {
-    axiosClient.get('/health').catch(() => {});
+    axiosClient.get('/health', { timeout: 90000 }).catch(() => {});
   }, []);
 
   const getLoginErrorMessage = (error: unknown): string => {
@@ -52,46 +52,31 @@ export default function MedicalLogin() {
     return data?.message || data?.error || 'Error al iniciar sesión';
   };
 
-  const shouldRetryLogin = (error: unknown, attempt: number): boolean => {
-    if (attempt > 1 || !axios.isAxiosError(error)) {
-      return false;
-    }
-    // Solo reintento si no hubo respuesta (cold-start / timeout).
-    // Los errores 5xx son fallos reales del servidor, no de arranque.
-    return !error.response;
-  };
-
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isLoading) return;
     setIsLoading(true);
     setMessage('');
 
+    // Si pasan 3 s sin respuesta, el servidor probablemente está arrancando (cold-start).
+    // Muestra el aviso en lugar de quedarse girando en silencio.
+    const warmTimer = setTimeout(() => setWarmingUp(true), 3000);
+
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      let response;
-
-      try {
-        response = await axiosClient.post('/auth/login', { email: normalizedEmail, password });
-      } catch (firstError: unknown) {
-        if (shouldRetryLogin(firstError, 1)) {
-          // El servidor estaba dormido (cold-start de Render). Espera 12 s para que despierte
-          // y muestra un aviso claro al usuario en lugar de fallar en silencio.
-          setWarmingUp(true);
-          await new Promise((resolve) => setTimeout(resolve, 12000));
-          setWarmingUp(false);
-          response = await axiosClient.post('/auth/login', { email: normalizedEmail, password });
-        } else {
-          throw firstError;
-        }
-      }
-
+      const response = await axiosClient.post(
+        '/auth/login',
+        { email: normalizedEmail, password },
+        { timeout: 90000 }, // 90 s: aguanta el cold-start de Render (30-60 s)
+      );
       const { token } = response.data as { token: string };
       login(token);
       navigate('/remisiones');
     } catch (error: unknown) {
       setMessage(getLoginErrorMessage(error));
     } finally {
+      clearTimeout(warmTimer);
+      setWarmingUp(false);
       setIsLoading(false);
     }
   };
