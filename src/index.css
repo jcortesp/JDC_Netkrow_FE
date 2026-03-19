@@ -1,13 +1,41 @@
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background-color: #f8f9fa;
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Nunito+Sans:wght@400;600;700&display=swap');
+
+:root {
+  --app-bg: #f4f8fb;
+  --app-bg-soft: #eaf2f8;
+  --text-main: #163344;
+  --text-muted: #476072;
 }
 
-h1, h2, h3 {
-  color: #343a40;
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Manrope', 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at 12% 20%, rgba(11, 79, 108, 0.08) 0, transparent 34%),
+    radial-gradient(circle at 90% 10%, rgba(14, 165, 164, 0.09) 0, transparent 28%),
+    linear-gradient(180deg, var(--app-bg) 0%, var(--app-bg-soft) 100%);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-main);
 }
 
 p {
-  color: #495057;
+  color: var(--text-muted);
 }

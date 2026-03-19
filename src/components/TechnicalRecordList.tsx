@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Table,
   TableBody,
@@ -9,12 +8,11 @@ import {
   Paper,
   Typography
 } from '@mui/material';
+import type { TechnicalRecord } from '../types';
 
-export default function TechnicalRecordList({ records }) {
+export default function TechnicalRecordList({ records }: { records: TechnicalRecord[] }) {
   if (!records.length) {
-    return (
-      <Typography>No hay registros de servicio técnico.</Typography>
-    );
+    return <Typography>No hay registros de servicio técnico.</Typography>;
   }
 
   return (
@@ -36,11 +34,9 @@ export default function TechnicalRecordList({ records }) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {records.map(r => (
+          {records.map((r) => (
             <TableRow key={r.id}>
-              <TableCell>
-                {new Date(r.createdAt).toLocaleString()}
-              </TableCell>
+              <TableCell>{new Date(r.createdAt).toLocaleString()}</TableCell>
               <TableCell>{r.equipo}</TableCell>
               <TableCell>{r.marca}</TableCell>
               <TableCell>{r.serial}</TableCell>

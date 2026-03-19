@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import { useState, useContext } from 'react';
 import axiosClient from '../api/axiosClient';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +12,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-function MedicalLogin() {
+export default function MedicalLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -21,7 +21,7 @@ function MedicalLogin() {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isLoading) return;
     setIsLoading(true);
@@ -29,12 +29,12 @@ function MedicalLogin() {
 
     try {
       const response = await axiosClient.post('/auth/login', { email, password });
-      const { token } = response.data;
+      const { token } = response.data as { token: string };
       login(token);
       navigate('/remisiones');
-    } catch (error) {
-      console.error('Error al iniciar sesión:', error);
-      setMessage(error.response?.data?.message || 'Error al iniciar sesión');
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      setMessage(axiosErr.response?.data?.message || 'Error al iniciar sesión');
     } finally {
       setIsLoading(false);
     }
@@ -72,37 +72,13 @@ function MedicalLogin() {
             Iniciar Sesión
           </Typography>
           <Stack component="form" onSubmit={handleLogin} spacing={2}>
-            <TextField
-              type="email"
-              label="Email"
-              variant="outlined"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              fullWidth
-            />
-            <TextField
-              type="password"
-              label="Contraseña"
-              variant="outlined"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              fullWidth
-            />
+            <TextField type="email" label="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <TextField type="password" label="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             {message && (
-              <Typography variant="body2" color="error">
-                {message}
-              </Typography>
+              <Typography color="error" variant="body2">{message}</Typography>
             )}
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              disabled={isLoading}
-              startIcon={isLoading ? <CircularProgress size={18} /> : null}
-            >
-              {isLoading ? 'Ingresando…' : 'Iniciar Sesión'}
+            <Button type="submit" variant="contained" disabled={isLoading} fullWidth>
+              {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Ingresar'}
             </Button>
           </Stack>
         </Box>
@@ -110,5 +86,3 @@ function MedicalLogin() {
     </Box>
   );
 }
-
-export default MedicalLogin;

@@ -233,7 +233,7 @@ export default function MedicalNavbar() {
           position: 'fixed',
           bottom: 0,
           left: 0,
-          height: 80,
+          height: { xs: 44, sm: 80 },
           zIndex: (theme) => theme.zIndex.appBar - 1,
         }}
       />
