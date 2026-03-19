@@ -1,5 +1,6 @@
 import { useState, useContext } from 'react';
 import axiosClient from '../api/axiosClient';
+import axios from 'axios';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -21,6 +22,39 @@ export default function MedicalLogin() {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  const getLoginErrorMessage = (error: unknown): string => {
+    if (!axios.isAxiosError(error)) {
+      return 'Error al iniciar sesión';
+    }
+
+    const status = error.response?.status;
+    const data = error.response?.data as { message?: string; error?: string } | undefined;
+
+    if (status === 401) {
+      return data?.message || data?.error || 'Credenciales inválidas';
+    }
+
+    if (!error.response) {
+      return 'Servidor no disponible temporalmente. Intenta de nuevo en unos segundos.';
+    }
+
+    if (status && status >= 500) {
+      return 'El servidor está respondiendo con error. Vuelve a intentar en unos segundos.';
+    }
+
+    return data?.message || data?.error || 'Error al iniciar sesión';
+  };
+
+  const shouldRetryLogin = (error: unknown, attempt: number): boolean => {
+    if (attempt > 1 || !axios.isAxiosError(error)) {
+      return false;
+    }
+
+    const status = error.response?.status;
+    // Reintento corto para errores típicos de cold-start/red/5xx.
+    return !error.response || (status !== undefined && status >= 500);
+  };
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isLoading) return;
@@ -28,13 +62,25 @@ export default function MedicalLogin() {
     setMessage('');
 
     try {
-      const response = await axiosClient.post('/auth/login', { email, password });
+      const normalizedEmail = email.trim().toLowerCase();
+      let response;
+
+      try {
+        response = await axiosClient.post('/auth/login', { email: normalizedEmail, password });
+      } catch (firstError: unknown) {
+        if (shouldRetryLogin(firstError, 1)) {
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          response = await axiosClient.post('/auth/login', { email: normalizedEmail, password });
+        } else {
+          throw firstError;
+        }
+      }
+
       const { token } = response.data as { token: string };
       login(token);
       navigate('/remisiones');
     } catch (error: unknown) {
-      const axiosErr = error as { response?: { data?: { message?: string } } };
-      setMessage(axiosErr.response?.data?.message || 'Error al iniciar sesión');
+      setMessage(getLoginErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
