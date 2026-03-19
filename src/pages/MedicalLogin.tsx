@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
 import axios from 'axios';
 import { AuthContext } from '../contexts/AuthContext';
@@ -18,9 +18,16 @@ export default function MedicalLogin() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [warmingUp, setWarmingUp] = useState(false);
 
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  // Pre-calentamiento: despierta el backend en cuanto carga la pantalla de login,
+  // para que cuando el usuario presione "Ingresar" el servidor ya esté listo.
+  useEffect(() => {
+    axiosClient.get('/health').catch(() => {});
+  }, []);
 
   const getLoginErrorMessage = (error: unknown): string => {
     if (!axios.isAxiosError(error)) {
@@ -49,10 +56,9 @@ export default function MedicalLogin() {
     if (attempt > 1 || !axios.isAxiosError(error)) {
       return false;
     }
-
-    const status = error.response?.status;
-    // Reintento corto para errores típicos de cold-start/red/5xx.
-    return !error.response || (status !== undefined && status >= 500);
+    // Solo reintento si no hubo respuesta (cold-start / timeout).
+    // Los errores 5xx son fallos reales del servidor, no de arranque.
+    return !error.response;
   };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -69,7 +75,11 @@ export default function MedicalLogin() {
         response = await axiosClient.post('/auth/login', { email: normalizedEmail, password });
       } catch (firstError: unknown) {
         if (shouldRetryLogin(firstError, 1)) {
-          await new Promise((resolve) => setTimeout(resolve, 1200));
+          // El servidor estaba dormido (cold-start de Render). Espera 12 s para que despierte
+          // y muestra un aviso claro al usuario en lugar de fallar en silencio.
+          setWarmingUp(true);
+          await new Promise((resolve) => setTimeout(resolve, 12000));
+          setWarmingUp(false);
           response = await axiosClient.post('/auth/login', { email: normalizedEmail, password });
         } else {
           throw firstError;
@@ -124,7 +134,16 @@ export default function MedicalLogin() {
               <Typography color="error" variant="body2">{message}</Typography>
             )}
             <Button type="submit" variant="contained" disabled={isLoading} fullWidth>
-              {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Ingresar'}
+              {isLoading ? (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <CircularProgress size={20} color="inherit" />
+                  {warmingUp && (
+                    <Typography variant="caption" sx={{ color: 'inherit' }}>
+                      Iniciando servidor...
+                    </Typography>
+                  )}
+                </Stack>
+              ) : 'Ingresar'}
             </Button>
           </Stack>
         </Box>
