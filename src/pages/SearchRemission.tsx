@@ -67,22 +67,25 @@ export default function SearchRemission() {
       ? ''
       : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(val);
 
-  const fetchById = useCallback(async (id) => {
+  const fetchById = useCallback(async (rawId) => {
     setMessage('');
     setErrorMsg('');
     setRemissionData(null);
     setRecords([]);
     setOriginalHasGarantia(false);
+    // Normalizamos el ID (sin espacios) para que una remisión guardada nunca
+    // "desaparezca" por un espacio accidental al escribir o pegar.
+    const id = (rawId ?? '').trim();
     if (!id) return;
 
     setLoading(true);
     try {
-      const { data } = await axiosClient.get(`/remissions/${id}`);
+      const { data } = await axiosClient.get(`/remissions/${encodeURIComponent(id)}`);
       setRemissionData(data);
 
       // cargar equipos
       try {
-        const res = await axiosClient.get(`/remissions/${id}/technical-records`);
+        const res = await axiosClient.get(`/remissions/${encodeURIComponent(id)}/technical-records`);
         setRecords(res.data || []);
       } catch (e) {
         setRecords([]);
@@ -91,7 +94,7 @@ export default function SearchRemission() {
       // verificar garantía (solo para remisión original)
       if (!id.endsWith('-G')) {
         try {
-          await axiosClient.get(`/remissions/${id}-G`);
+          await axiosClient.get(`/remissions/${encodeURIComponent(id + '-G')}`);
           setOriginalHasGarantia(true);
         } catch {
           setOriginalHasGarantia(false);

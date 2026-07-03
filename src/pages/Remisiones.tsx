@@ -123,9 +123,13 @@ export default function Remisiones() {
     }
 
     try {
+      // ID normalizado (sin espacios) usado en TODO el flujo para evitar
+      // remisiones que luego "no aparecen" al buscarlas.
+      const remId = formValues.remissionId.trim();
+
       // 1) Crear remisión con total calculado
       const payloadRem = {
-        remissionId: formValues.remissionId,
+        remissionId: remId,
         celular: formValues.celular || null,
         totalValue: totalCalculado,
         depositValue: abono,
@@ -140,7 +144,6 @@ export default function Remisiones() {
       );
 
       // 2) Crear registros técnicos (equipo + valor) contra el remissionId ingresado
-      const remId = formValues.remissionId.trim();
 
       // Secuencial para simplificar manejo de errores y garantizar orden
       for (const eItem of equipos) {

@@ -35,11 +35,12 @@ export default function ServicioTecnico() {
   };
   const [newRecord, setNewRecord] = useState(initialRecord);
 
-  const fetchRemision = async (id) => {
+  const fetchRemision = async (rawId) => {
+    const id = (rawId ?? '').trim();
     try {
-      const { data } = await axiosClient.get(`/remissions/${id}`);
+      const { data } = await axiosClient.get(`/remissions/${encodeURIComponent(id)}`);
       setRemisionData(data);
-      const res = await axiosClient.get(`/remissions/${id}/technical-records`);
+      const res = await axiosClient.get(`/remissions/${encodeURIComponent(id)}/technical-records`);
       setRecords(res.data);
       setError('');
       setSuccessMsg('');
@@ -71,7 +72,7 @@ export default function ServicioTecnico() {
     try {
       // Normalizamos valor a número
       const payload = { ...form, valor: form.valor === '' ? 0 : Number(form.valor) };
-      await axiosClient.post(`/remissions/${remissionId}/technical-records`, payload);
+      await axiosClient.post(`/remissions/${encodeURIComponent(remissionId.trim())}/technical-records`, payload);
       await fetchRemision(remissionId);
       setSuccessMsg('Guardado con éxito');
       setNewMode(false);
@@ -83,7 +84,7 @@ export default function ServicioTecnico() {
   const handleUpdate = async (recordId, form) => {
     try {
       const payload = { ...form, valor: form.valor === '' ? 0 : Number(form.valor) };
-      await axiosClient.put(`/remissions/${remissionId}/technical-records/${recordId}`, payload);
+      await axiosClient.put(`/remissions/${encodeURIComponent(remissionId.trim())}/technical-records/${recordId}`, payload);
       await fetchRemision(remissionId);
       setSuccessMsg('Guardado con éxito');
       setExpanded(false);
