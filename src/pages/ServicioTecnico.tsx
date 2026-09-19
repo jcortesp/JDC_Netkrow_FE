@@ -15,6 +15,11 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import axiosClient from '../api/axiosClient';
 import { useLocation } from 'react-router-dom';
 import TechnicalRecordForm from '../components/TechnicalRecordForm';
+import WhatsAppConfirmation, { PendingWhatsApp } from '../components/WhatsAppConfirmation';
+import {
+  navigateWhatsAppWindow,
+  READY_MESSAGE,
+} from '../utils/whatsapp';
 
 export default function ServicioTecnico() {
   const location = useLocation();
@@ -27,6 +32,8 @@ export default function ServicioTecnico() {
   const [successMsg, setSuccessMsg] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [newMode, setNewMode] = useState(false);
+  const [pendingWhatsApp, setPendingWhatsApp] = useState<PendingWhatsApp | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const initialRecord = {
     equipo: '', valor: '', marca: '', serial: '', brazalete: '',
@@ -42,6 +49,7 @@ export default function ServicioTecnico() {
       setRemisionData(data);
       const res = await axiosClient.get(`/remissions/${encodeURIComponent(id)}/technical-records`);
       setRecords(res.data);
+      setHasUnsavedChanges(false);
       setError('');
       setSuccessMsg('');
       setExpanded(false);
@@ -93,45 +101,47 @@ export default function ServicioTecnico() {
     }
   };
 
-  const handleSendWhatsApp = (record) => {
+  const isReadyForPickup = () => {
+    if (remisionData?.fechaSalida || hasUnsavedChanges || newMode) return false;
+    const activeRecords = records.filter(record => !record.dadoBaja);
+    return activeRecords.length > 0 && activeRecords.every(record => (
+      ['revision', 'mantenimiento', 'limpieza', 'calibracion']
+        .every(field => String(record[field] || '').trim().toLowerCase() === 'ok')
+    ));
+  };
+
+  const handleSendWhatsApp = async (record) => {
+    const loadedId = remisionData?.remissionId;
+    if (!loadedId) return;
+    if (isReadyForPickup()) {
+      try {
+        navigateWhatsAppWindow(null, READY_MESSAGE(loadedId), remisionData?.celular);
+        setPendingWhatsApp({ remissionId: loadedId, kind: 'ready' });
+        setError('');
+      } catch (e) {
+        setError(e.message);
+      }
+      return;
+    }
+
     const message = [
-      'Hola, te compartimos el estado de tu servicio tecnico.',
-      `Remision: ${remissionId || '-'}`,
+      'Hola, te compartimos el estado de tu servicio técnico.',
+      `Remisión: ${loadedId || '-'}`,
       `Equipo: ${record?.equipo || '-'}`,
       `Marca: ${record?.marca || '-'}`,
       `Serial: ${record?.serial || '-'}`,
-      `Revision: ${record?.revision || '-'}`,
+      `Revisión: ${record?.revision || '-'}`,
       `Mantenimiento: ${record?.mantenimiento || '-'}`,
       `Limpieza: ${record?.limpieza || '-'}`,
-      `Calibracion: ${record?.calibracion || '-'}`,
+      `Calibración: ${record?.calibracion || '-'}`,
       `Notas: ${record?.notasDiagnostico || '-'}`,
     ].join('\n');
 
-    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const encoded = encodeURIComponent(message);
-    
-    // Preparar celular: remover espacios, caracteres especiales, + inicial
-    let celular = (remisionData?.celular || '').trim();
-    if (celular) {
-      celular = celular.replace(/\s+/g, '').replace(/[^\d]/g, '');
-      // Si no comienza con 57 (código de Colombia), agregarlo
-      if (celular && !celular.startsWith('57')) {
-        celular = '57' + celular;
-      }
+    try {
+      navigateWhatsAppWindow(null, message, remisionData?.celular);
+    } catch (e) {
+      setError(e.message);
     }
-    
-    let whatsappUrl;
-    if (isMobile) {
-      whatsappUrl = celular
-        ? `https://wa.me/${celular}?text=${encoded}`
-        : `https://wa.me/?text=${encoded}`;
-    } else {
-      whatsappUrl = celular
-        ? `https://web.whatsapp.com/send?phone=${celular}&text=${encoded}`
-        : `https://web.whatsapp.com/send?text=${encoded}`;
-    }
-    
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
 
   const readOnly = Boolean(remisionData?.fechaSalida);
@@ -148,6 +158,11 @@ export default function ServicioTecnico() {
         p: 4
       }}
     >
+      <WhatsAppConfirmation
+        pending={pendingWhatsApp}
+        onClose={() => setPendingWhatsApp(null)}
+        onConfirmed={() => setSuccessMsg('Envío confirmado. El recordatorio estará disponible en 15 días.')}
+      />
       <Container maxWidth="sm" sx={{ backgroundColor: 'rgba(255,255,255,0.8)', p: 3, borderRadius: 2 }}>
         <Typography variant="h5" align="center" gutterBottom>
           Servicio Técnico
@@ -201,6 +216,7 @@ export default function ServicioTecnico() {
                     form={{ ...rec, valor: rec.valor ?? '' }}
                     onChange={e => {
                       const { name, value } = e.target;
+                      setHasUnsavedChanges(true);
                       setRecords(rs =>
                         rs.map(r => (r.id === rec.id ? { ...r, [name]: value } : r))
                       );
@@ -210,6 +226,7 @@ export default function ServicioTecnico() {
                       handleUpdate(rec.id, rec);
                     }}
                     onSendWhatsApp={handleSendWhatsApp}
+                    whatsappLabel={isReadyForPickup() ? 'Avisar que está listo' : 'Enviar estado por WhatsApp'}
                     error={error}
                     readOnly={readOnly}
                   />
@@ -246,6 +263,7 @@ export default function ServicioTecnico() {
                     handleCreate(newRecord);
                   }}
                   onSendWhatsApp={handleSendWhatsApp}
+                  whatsappLabel={isReadyForPickup() ? 'Avisar que está listo' : 'Enviar estado por WhatsApp'}
                   error={error}
                   readOnly={false}
                 />

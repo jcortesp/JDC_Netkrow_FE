@@ -8,14 +8,36 @@ import {
   Stack
 } from '@mui/material';
 
+interface TechnicalRecordValues {
+  [field: string]: string | number;
+  equipo: string;
+  marca: string;
+  serial: string;
+  brazalete: string;
+  pilas: string;
+  notasDiagnostico: string;
+  valor?: string | number;
+}
+
+interface TechnicalRecordFormProps {
+  form: TechnicalRecordValues;
+  onChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>;
+  onSubmit: React.FormEventHandler<HTMLFormElement>;
+  onSendWhatsApp?: (form: TechnicalRecordValues) => void;
+  whatsappLabel?: string;
+  readOnly?: boolean;
+  error?: string | { message?: string };
+}
+
 export default function TechnicalRecordForm({
   form,
   onChange,
   onSubmit,
   onSendWhatsApp,
+  whatsappLabel = 'Enviar por WhatsApp',
   readOnly = false,
   error = ''
-}) {
+}: TechnicalRecordFormProps) {
   const borderStyle = val => ({
     '& .MuiOutlinedInput-root fieldset': {
       borderColor: val ? 'green' : 'darkgoldenrod'
@@ -209,7 +231,7 @@ export default function TechnicalRecordForm({
           color="success"
           onClick={() => onSendWhatsApp?.(form)}
         >
-          Enviar por WhatsApp
+          {whatsappLabel}
         </Button>
       </Stack>
     </Box>

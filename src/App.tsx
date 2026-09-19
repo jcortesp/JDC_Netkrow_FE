@@ -21,6 +21,7 @@ const ServicioTecnicoResumen = lazy(() => import('./pages/ServicioTecnicoResumen
 const VolumeReportPage      = lazy(() => import('./pages/VolumeReportPage'));
 const ProductsPage          = lazy(() => import('./pages/ProductsPage'));
 const SalesPage             = lazy(() => import('./pages/SalesPage'));
+const WhatsAppRecordatorios = lazy(() => import('./pages/WhatsAppRecordatorios'));
 
 // Bloque Especialistas
 const SearchSpecialists = lazy(() => import('./pages/SearchSpecialists'));
@@ -139,6 +140,7 @@ function App() {
               <Route path="/reports/volume" element={<VolumeReportPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/sales" element={<SalesPage />} />
+              <Route path="/recordatorios-whatsapp" element={<WhatsAppRecordatorios />} />
             </Route>
 
             {/* ---- BLOQUE: Flujo Especialistas (MUI) ---- */}

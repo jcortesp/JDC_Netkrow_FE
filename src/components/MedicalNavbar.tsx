@@ -206,6 +206,9 @@ export default function MedicalNavbar() {
             <Button component={Link} to="/sales" color="inherit">
               Ventas
             </Button>
+            <Button component={Link} to="/recordatorios-whatsapp" color="inherit">
+              Recordatorios WhatsApp
+            </Button>
 
             {/* 🆕 Botón de Gasto (abre diálogo) */}
             <Button
