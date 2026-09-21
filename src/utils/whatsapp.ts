@@ -37,6 +37,7 @@ export const REMINDER_MESSAGE = (record: {
   'Hola, te recordamos que tu equipo está listo para recoger y continúa pendiente de entrega.',
   `Han transcurrido ${record.daysReady} días desde que quedó listo.`,
   'Por favor, pasa a recogerlo, ya que pronto será enviado a la bodega central.',
+  'Si prefieres, podemos hacer el domicilio con un costo adicional. Confírmanos si te interesa.',
   `Remisión: ${record.remissionId || '-'}.`,
   `Equipo: ${record.equipo}.`,
   record.marca ? `Marca: ${record.marca}.` : '',

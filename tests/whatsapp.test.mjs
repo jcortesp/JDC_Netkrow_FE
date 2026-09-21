@@ -39,6 +39,7 @@ test('reminder includes remission, elapsed days and equipment', () => {
   assert.match(message, /Remisión: R-2/);
   assert.match(message, /Tensiómetro/);
   assert.match(message, /Serial: ABC-1/);
+  assert.match(message, /domicilio con un costo adicional/);
   assert.doesNotMatch(message, /desde el último aviso/);
 });
 test('ready service message clearly says the equipment can be collected', () => {
