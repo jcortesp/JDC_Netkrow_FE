@@ -4,16 +4,20 @@ export const READY_MESSAGE = (remissionId: string) => [
   'Por favor, pasa a retirarlo.',
 ].join('\n');
 
-export const REMINDER_MESSAGE = (remission: {
+export const REMINDER_MESSAGE = (record: {
   remissionId: string;
-  daysSinceLastNotification: number;
-  equipment?: string[];
+  daysReady: number;
+  equipo: string;
+  marca?: string | null;
+  serial?: string | null;
 }) => [
   'Hola. Te recordamos que tu equipo sigue pendiente de recogida.',
-  `Han pasado ${remission.daysSinceLastNotification} días desde el último aviso.`,
+  `El equipo lleva ${record.daysReady} días listo para entrega.`,
   'Por favor, pasa a retirarlo, ya que pronto será enviado a la bodega central.',
-  `Remisión: ${remission.remissionId || '-'}.`,
-  remission.equipment?.length ? `Equipos: ${remission.equipment.join(', ')}.` : '',
+  `Remisión: ${record.remissionId || '-'}.`,
+  `Equipo: ${record.equipo}.`,
+  record.marca ? `Marca: ${record.marca}.` : '',
+  record.serial ? `Serial: ${record.serial}.` : '',
 ].filter(Boolean).join('\n');
 
 export function normalizePhone(phone?: string | null) {

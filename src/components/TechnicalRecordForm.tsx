@@ -25,6 +25,9 @@ interface TechnicalRecordFormProps {
   onSubmit: React.FormEventHandler<HTMLFormElement>;
   onSendWhatsApp?: (form: TechnicalRecordValues) => void;
   whatsappLabel?: string;
+  onMarkReady?: () => void;
+  readyDisabled?: boolean;
+  readyLabel?: string;
   readOnly?: boolean;
   error?: string | { message?: string };
 }
@@ -35,6 +38,9 @@ export default function TechnicalRecordForm({
   onSubmit,
   onSendWhatsApp,
   whatsappLabel = 'Enviar por WhatsApp',
+  onMarkReady,
+  readyDisabled = false,
+  readyLabel = 'Listo para entrega',
   readOnly = false,
   error = ''
 }: TechnicalRecordFormProps) {
@@ -223,6 +229,11 @@ export default function TechnicalRecordForm({
         {!readOnly && (
           <Button type="submit" variant="contained">
             Guardar
+          </Button>
+        )}
+        {onMarkReady && (
+          <Button type="button" variant="outlined" disabled={readyDisabled} onClick={onMarkReady}>
+            {readyLabel}
           </Button>
         )}
         <Button

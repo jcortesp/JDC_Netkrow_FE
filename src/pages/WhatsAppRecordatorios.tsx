@@ -19,6 +19,7 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import axiosClient from '../api/axiosClient';
+import { formatUtcDate } from '../utils/equipment';
 import WhatsAppConfirmation, { PendingWhatsApp } from '../components/WhatsAppConfirmation';
 import {
   navigateWhatsAppWindow,
@@ -26,30 +27,16 @@ import {
 } from '../utils/whatsapp';
 
 interface WhatsAppReminder {
+  recordId: number;
   remissionId: string;
   celular?: string | null;
-  totalValue?: number | null;
-  createdAt?: string | null;
-  firstNotificationAt: string;
+  equipo: string;
+  marca?: string | null;
+  serial?: string | null;
+  readyAt: string;
   lastReminderAt?: string | null;
-  lastNotificationAt: string;
-  daysSinceLastNotification: number;
-  equipment: string[];
+  daysReady: number;
 }
-
-const formatDate = (value?: string | null) => {
-  if (!value) return '-';
-  return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(/[zZ]|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`));
-};
-
-const formatCurrency = (value?: number | null) => new Intl.NumberFormat('es-CO', {
-  style: 'currency',
-  currency: 'COP',
-  maximumFractionDigits: 0,
-}).format(value || 0);
 
 export default function WhatsAppRecordatorios() {
   const [reminders, setReminders] = useState<WhatsAppReminder[]>([]);
@@ -62,7 +49,7 @@ export default function WhatsAppRecordatorios() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await axiosClient.get<WhatsAppReminder[]>('/remissions/whatsapp/reminders');
+      const { data } = await axiosClient.get<WhatsAppReminder[]>('/remissions/whatsapp/equipment-reminders');
       setReminders(data || []);
     } catch (requestError) {
       console.error(requestError);
@@ -81,7 +68,7 @@ export default function WhatsAppRecordatorios() {
     setSuccess('');
     try {
       navigateWhatsAppWindow(null, REMINDER_MESSAGE(reminder), reminder.celular);
-      setPendingWhatsApp({ remissionId: reminder.remissionId, kind: 'reminder' });
+      setPendingWhatsApp({ remissionId: reminder.remissionId, recordId: reminder.recordId, equipo: reminder.equipo });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible abrir WhatsApp.');
     }
@@ -93,8 +80,8 @@ export default function WhatsAppRecordatorios() {
         pending={pendingWhatsApp}
         onClose={() => setPendingWhatsApp(null)}
         onConfirmed={(id) => {
-          setReminders(current => current.filter(item => item.remissionId !== id));
-          setSuccess('Recordatorio confirmado para la remisión ' + id + '.');
+          setReminders(current => current.filter(item => item.recordId !== id));
+          setSuccess('Recordatorio del equipo confirmado.');
         }}
       />
       <Container maxWidth="xl">
@@ -102,7 +89,7 @@ export default function WhatsAppRecordatorios() {
           <Box>
             <Typography variant="h4">Recordatorios de recogida</Typography>
             <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-              Remisiones listas que cumplen 15 días desde el último aviso por WhatsApp.
+              Equipos con 15 días o más listos para entrega y cuya remisión aún no ha sido entregada.
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
@@ -125,7 +112,7 @@ export default function WhatsAppRecordatorios() {
             <Box sx={{ py: 8, px: 3, textAlign: 'center' }}>
               <WhatsAppIcon color="success" sx={{ fontSize: 42, mb: 1 }} />
               <Typography variant="h6">No hay recordatorios pendientes</Typography>
-              <Typography color="text.secondary">Las remisiones reaparecerán cuando cumplan otros 15 días desde el último aviso.</Typography>
+              <Typography color="text.secondary">Los equipos reaparecen 15 días después de su último recordatorio si la remisión sigue pendiente.</Typography>
             </Box>
           ) : (
             <TableContainer>
@@ -133,24 +120,25 @@ export default function WhatsAppRecordatorios() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Remisión</TableCell>
-                    <TableCell>Equipos</TableCell>
+                    <TableCell>Equipo</TableCell>
                     <TableCell>Celular</TableCell>
-                    <TableCell>Último aviso</TableCell>
-                    <TableCell align="center">Días</TableCell>
+                    <TableCell>Listo desde</TableCell>
+                    <TableCell>Último recordatorio</TableCell>
+                    <TableCell align="center">Días listo</TableCell>
                     <TableCell align="right">Acción</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {reminders.map((reminder) => (
-                    <TableRow key={reminder.remissionId} hover>
+                    <TableRow key={reminder.recordId} hover>
                       <TableCell>
                         <Typography fontWeight={800}>{reminder.remissionId}</Typography>
-                        <Typography variant="caption" color="text.secondary">{formatCurrency(reminder.totalValue)}</Typography>
                       </TableCell>
-                      <TableCell>{reminder.equipment.length ? reminder.equipment.join(', ') : 'Sin equipos activos'}</TableCell>
+                      <TableCell>{reminder.equipo}<Typography variant="caption" display="block">{reminder.marca || "Sin marca"} · Serial: {reminder.serial || "Sin serial"}</Typography></TableCell>
                       <TableCell>{reminder.celular || <Chip label="Sin celular" size="small" color="warning" variant="outlined" />}</TableCell>
-                      <TableCell>{formatDate(reminder.lastNotificationAt)}</TableCell>
-                      <TableCell align="center"><Chip label={`${reminder.daysSinceLastNotification} días`} color="warning" /></TableCell>
+                      <TableCell>{formatUtcDate(reminder.readyAt)}</TableCell>
+                      <TableCell>{formatUtcDate(reminder.lastReminderAt)}</TableCell>
+                      <TableCell align="center"><Chip label={`${reminder.daysReady} días`} color="warning" /></TableCell>
                       <TableCell align="right">
                         <Button
                           variant="contained"

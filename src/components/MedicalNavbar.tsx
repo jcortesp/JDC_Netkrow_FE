@@ -21,6 +21,8 @@ import {
   Paper,
   Chip,
   CircularProgress,
+  Stack,
+  Typography,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
@@ -36,12 +38,19 @@ export default function MedicalNavbar() {
   const [saving, setSaving] = useState(false);
   const [loadingExpenses, setLoadingExpenses] = useState(false);
   const [expenses, setExpenses] = useState([]);
+  const [expenseFrom, setExpenseFrom] = useState('');
+  const [expenseTo, setExpenseTo] = useState('');
+  const [expenseTotal, setExpenseTotal] = useState<number | null>(null);
+  const [expenseListError, setExpenseListError] = useState('');
+  const [appliedRange, setAppliedRange] = useState({ from: '', to: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const formatCurrency = (value) =>
     new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(value || 0);
 
   const formatDateTime = (value) => {
@@ -52,35 +61,24 @@ export default function MedicalNavbar() {
     }).format(new Date(value));
   };
 
-  const getExpensesRange = () => {
-    const now = new Date();
-    const from = new Date();
-    from.setFullYear(now.getFullYear() - 1);
-
-    const toIso = now.toISOString().slice(0, 19);
-    const fromIso = from.toISOString().slice(0, 19);
-
-    return { fromIso, toIso };
-  };
-
-  const fetchExpenses = async () => {
+  const fetchExpenses = async (from = expenseFrom, to = expenseTo) => {
+    if (from && to && from > to) {
+      setExpenseListError('La fecha Desde no puede ser posterior a Hasta.');
+      return;
+    }
     setLoadingExpenses(true);
+    setExpenseListError('');
+    setExpenseTotal(null);
     try {
-      const { fromIso, toIso } = getExpensesRange();
-      const res = await axiosClient.get('/expenses', {
-        params: {
-          from: fromIso,
-          to: toIso,
-        },
+      const { data } = await axiosClient.get('/expenses/summary', {
+        params: { from: from || undefined, to: to || undefined },
       });
-      setExpenses(res.data || []);
+      setExpenses(data.expenses);
+      setExpenseTotal(Number(data.total));
+      setAppliedRange({ from, to });
     } catch (e) {
       console.error(e);
-      setSnackbar({
-        open: true,
-        message: 'No fue posible cargar la lista de gastos.',
-        severity: 'error',
-      });
+      setExpenseListError('No fue posible cargar los gastos. Intenta consultar nuevamente.');
       setExpenses([]);
     } finally {
       setLoadingExpenses(false);
@@ -210,6 +208,8 @@ export default function MedicalNavbar() {
               Recordatorios WhatsApp
             </Button>
 
+            <Button color="inherit" onClick={handleOpenExpenseList}>Ver gastos</Button>
+
             {/* 🆕 Botón de Gasto (abre diálogo) */}
             <Button
               variant="contained"
@@ -311,6 +311,29 @@ export default function MedicalNavbar() {
       >
         <DialogTitle>Detalle de gastos</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ my: 2 }}>
+            <TextField label="Desde" type="date" value={expenseFrom} disabled={loadingExpenses}
+              InputLabelProps={{ shrink: true }} onChange={e => setExpenseFrom(e.target.value)} />
+            <TextField label="Hasta" type="date" value={expenseTo} disabled={loadingExpenses}
+              InputLabelProps={{ shrink: true }} onChange={e => setExpenseTo(e.target.value)} />
+            <Button variant="outlined" disabled={loadingExpenses} onClick={() => fetchExpenses()}>Filtrar</Button>
+            <Button disabled={loadingExpenses} onClick={() => {
+              setExpenseFrom(''); setExpenseTo(''); void fetchExpenses('', '');
+            }}>Limpiar</Button>
+          </Stack>
+          {expenseListError && <Alert severity="error" sx={{ mb: 2 }}>{expenseListError}</Alert>}
+          {!loadingExpenses && expenseTotal !== null && (
+            <Box sx={{ p: 2, mb: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+              <Typography variant="h6">Total de gastos: {formatCurrency(expenseTotal)}</Typography>
+              <Typography variant="body2">
+                {expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'} · {appliedRange.from || 'Desde el inicio'} — {appliedRange.to || 'Sin fecha final'}
+                {' · Ambos días incluidos'}
+              </Typography>
+              {(expenseFrom !== appliedRange.from || expenseTo !== appliedRange.to) && (
+                <Typography variant="body2" color="warning.main">Pulsa Filtrar para aplicar las fechas seleccionadas.</Typography>
+              )}
+            </Box>
+          )}
           {loadingExpenses ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
               <CircularProgress size={30} />
@@ -357,7 +380,7 @@ export default function MedicalNavbar() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={fetchExpenses} disabled={loadingExpenses}>
+          <Button onClick={() => fetchExpenses()} disabled={loadingExpenses}>
             Actualizar
           </Button>
           <Button variant="contained" onClick={() => setOpenExpenseList(false)}>

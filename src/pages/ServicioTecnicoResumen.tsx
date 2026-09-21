@@ -19,6 +19,7 @@ import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurned
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import axiosClient from '../api/axiosClient';
 import { useLocation } from 'react-router-dom';
+import { equipmentStatus, equipmentStatusLabel, formatUtcDate } from '../utils/equipment';
 
 const formatMoney = (value) =>
   new Intl.NumberFormat('es-CO', {
@@ -43,35 +44,15 @@ const normalizeState = (value) => {
   return { label: value, color: 'warning' };
 };
 
-const getRecordStatus = (record) => {
-  if (record.dadoBaja) {
-    return {
-      label: 'Dado de baja',
-      color: 'error',
-      icon: <ReportProblemOutlinedIcon fontSize="small" />,
-    };
-  }
-
-  const checkpoints = [
-    record.revision,
-    record.mantenimiento,
-    record.limpieza,
-    record.calibracion,
-  ];
-
-  const ready = checkpoints.every((item) => String(item || '').toLowerCase() === 'ok');
-
-  return ready
-    ? {
-        label: 'Listo',
-        color: 'success',
-        icon: <AssignmentTurnedInOutlinedIcon fontSize="small" />,
-      }
-    : {
-        label: 'En proceso',
-        color: 'warning',
-        icon: <PendingActionsOutlinedIcon fontSize="small" />,
-      };
+const getRecordStatus = (record, remission) => {
+  const state = equipmentStatus(record, remission);
+  return {
+    label: equipmentStatusLabel[state],
+    color: state === 'BAJA' ? 'error' : state === 'EN_SERVICIO' ? 'warning' : 'success',
+    icon: state === 'BAJA' ? <ReportProblemOutlinedIcon fontSize="small" />
+      : state === 'EN_SERVICIO' ? <PendingActionsOutlinedIcon fontSize="small" />
+      : <AssignmentTurnedInOutlinedIcon fontSize="small" />,
+  };
 };
 
 export default function ServicioTecnicoResumen() {
@@ -152,7 +133,7 @@ export default function ServicioTecnicoResumen() {
   }, [initialId]);
 
   const activeRecords = records.filter((record) => !record.dadoBaja);
-  const readyCount = activeRecords.filter((record) => getRecordStatus(record).label === 'Listo').length;
+  const readyCount = activeRecords.filter((record) => equipmentStatus(record, remissionData) === 'LISTO').length;
   const saldoPagar =
     remissionData?.saldo ??
     ((remissionData?.totalValue || 0) - (remissionData?.depositValue || 0));
@@ -272,7 +253,7 @@ export default function ServicioTecnicoResumen() {
             <Grid container spacing={3}>
               {records.length > 0 ? (
                 records.map((record) => {
-                  const status = getRecordStatus(record);
+                  const status = getRecordStatus(record, remissionData);
                   const revisionState = normalizeState(record.revision);
                   const mantenimientoState = normalizeState(record.mantenimiento);
                   const limpiezaState = normalizeState(record.limpieza);
@@ -372,6 +353,7 @@ export default function ServicioTecnicoResumen() {
                               </Box>
                             )}
 
+                            {record.readyAt && <Typography variant="body2">Listo desde: {formatUtcDate(record.readyAt)}</Typography>}
                             {record.dadoBaja && (
                               <Alert severity="warning" sx={{ borderRadius: 3 }}>
                                 Este equipo fue dado de baja{record.fechaBaja ? ` el ${formatDateTime(record.fechaBaja)}` : ''}.

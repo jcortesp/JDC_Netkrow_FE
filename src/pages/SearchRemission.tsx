@@ -23,6 +23,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import axiosClient from '../api/axiosClient';
+import { equipmentStatus, equipmentStatusLabel } from '../utils/equipment';
 import { useLocation } from 'react-router-dom';
 import DoNotDisturbOnIcon from '@mui/icons-material/DoNotDisturbOn';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -456,7 +457,8 @@ export default function SearchRemission() {
 
                 <Stack spacing={1}>
                   {records.map((r) => {
-                    const isBaja = !!r.dadoBaja;
+                    const status = equipmentStatus(r, remissionData);
+                    const isBaja = status === 'BAJA';
                     return (
                       <Box
                         key={r.id}
@@ -499,7 +501,7 @@ export default function SearchRemission() {
                               size="small"
                               color="success"
                               icon={<CheckCircleOutlineIcon />}
-                              label="Activo"
+                              label={equipmentStatusLabel[status]}
                               sx={{ mt: 0.5 }}
                             />
                           )}

@@ -5,13 +5,14 @@ import axiosClient from '../api/axiosClient';
 
 export interface PendingWhatsApp {
   remissionId: string;
-  kind: 'ready' | 'reminder';
+  recordId: number;
+  equipo: string;
 }
 
 export default function WhatsAppConfirmation({ pending, onClose, onConfirmed }: {
   pending: PendingWhatsApp | null;
   onClose: () => void;
-  onConfirmed: (remissionId: string) => void;
+  onConfirmed: (recordId: number) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -21,8 +22,8 @@ export default function WhatsAppConfirmation({ pending, onClose, onConfirmed }: 
     setSaving(true);
     setError('');
     try {
-      await axiosClient.post(`/remissions/${encodeURIComponent(pending.remissionId)}/whatsapp/${pending.kind}`);
-      onConfirmed(pending.remissionId);
+      await axiosClient.post(`/remissions/${encodeURIComponent(pending.remissionId)}/technical-records/${pending.recordId}/whatsapp/reminder`);
+      onConfirmed(pending.recordId);
       onClose();
     } catch (e) {
       setError(axios.isAxiosError(e) && e.response?.data?.message
@@ -34,9 +35,9 @@ export default function WhatsAppConfirmation({ pending, onClose, onConfirmed }: 
 
   return (
     <Dialog open={Boolean(pending)} onClose={() => { if (!saving) { setError(''); onClose(); } }}>
-      <DialogTitle>Confirmar envío · {pending?.remissionId}</DialogTitle>
+      <DialogTitle>Confirmar recordatorio · {pending?.remissionId} · {pending?.equipo}</DialogTitle>
       <DialogContent>
-        Envía el mensaje en WhatsApp y luego pulsa «Ya lo envié». Los 15 días se cuentan desde esta confirmación.
+        Envía el mensaje en WhatsApp y luego pulsa «Ya lo envié». El próximo recordatorio estará disponible 15 días después de esta confirmación. La fecha en que quedó listo no cambia.
         Si no lo enviaste, cancela para conservar el aviso pendiente.
         {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       </DialogContent>

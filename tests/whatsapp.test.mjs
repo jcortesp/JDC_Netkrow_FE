@@ -34,8 +34,10 @@ test('opens one navigable window and removes its opener', () => {
   assert.equal(new URL(target.location.href).searchParams.get('text'), 'Hola');
 });
 test('reminder includes remission, elapsed days and equipment', () => {
-  const message = REMINDER_MESSAGE({ remissionId: 'R-2', daysSinceLastNotification: 16, equipment: ['Tensiómetro'] });
+  const message = REMINDER_MESSAGE({ remissionId: 'R-2', daysReady: 16, equipo: 'Tensiómetro', serial: 'ABC-1' });
   assert.match(message, /16 días/);
   assert.match(message, /Remisión: R-2/);
   assert.match(message, /Tensiómetro/);
+  assert.match(message, /Serial: ABC-1/);
+  assert.doesNotMatch(message, /desde el último aviso/);
 });
