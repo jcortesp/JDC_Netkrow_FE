@@ -1,8 +1,31 @@
-export const READY_MESSAGE = (remissionId: string) => [
-  'Hola. Tu equipo ya está listo para recoger.',
-  `Remisión: ${remissionId || '-'}.`,
-  'Por favor, pasa a retirarlo.',
-].join('\n');
+interface ServiceMessageRecord {
+  equipo?: string | null;
+  marca?: string | null;
+  serial?: string | null;
+  revision?: string | null;
+  mantenimiento?: string | null;
+  limpieza?: string | null;
+  calibracion?: string | null;
+  notasDiagnostico?: string | null;
+}
+
+export const SERVICE_MESSAGE = (record: ServiceMessageRecord, remissionId: string, ready: boolean) => [
+  ready
+    ? 'Hola, te informamos que tu equipo está listo para recoger.'
+    : 'Hola, te compartimos una actualización del servicio técnico de tu equipo.',
+  ready ? '' : 'Estado actual: En servicio.',
+  'Estos son los datos del servicio:',
+  `Remisión: ${remissionId || '-'}`,
+  `Equipo: ${record.equipo || '-'}`,
+  `Marca: ${record.marca || '-'}`,
+  `Serial: ${record.serial || '-'}`,
+  `Revisión: ${record.revision || '-'}`,
+  `Mantenimiento: ${record.mantenimiento || '-'}`,
+  `Limpieza: ${record.limpieza || '-'}`,
+  `Calibración: ${record.calibracion || '-'}`,
+  `Notas: ${record.notasDiagnostico || '-'}`,
+  ready ? 'Puedes pasar a recogerlo. Gracias.' : '',
+].filter(Boolean).join('\n');
 
 export const REMINDER_MESSAGE = (record: {
   remissionId: string;
@@ -11,9 +34,9 @@ export const REMINDER_MESSAGE = (record: {
   marca?: string | null;
   serial?: string | null;
 }) => [
-  'Hola. Te recordamos que tu equipo sigue pendiente de recogida.',
-  `El equipo lleva ${record.daysReady} días listo para entrega.`,
-  'Por favor, pasa a retirarlo, ya que pronto será enviado a la bodega central.',
+  'Hola, te recordamos que tu equipo está listo para recoger y continúa pendiente de entrega.',
+  `Han transcurrido ${record.daysReady} días desde que quedó listo.`,
+  'Por favor, pasa a recogerlo, ya que pronto será enviado a la bodega central.',
   `Remisión: ${record.remissionId || '-'}.`,
   `Equipo: ${record.equipo}.`,
   record.marca ? `Marca: ${record.marca}.` : '',

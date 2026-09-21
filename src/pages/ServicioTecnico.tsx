@@ -18,6 +18,7 @@ import TechnicalRecordForm from '../components/TechnicalRecordForm';
 import { equipmentStatus, equipmentStatusLabel, formatUtcDate, readyValidationIssues } from '../utils/equipment';
 import {
   navigateWhatsAppWindow,
+  SERVICE_MESSAGE,
 } from '../utils/whatsapp';
 
 const initialRecord = {
@@ -143,18 +144,8 @@ export default function ServicioTecnico() {
   const handleSendWhatsApp = (record) => {
     const loadedId = remisionData?.remissionId;
     if (!loadedId) return;
-    const message = [
-      'Hola, te compartimos el estado de tu servicio técnico.',
-      `Remisión: ${loadedId || '-'}`,
-      `Equipo: ${record?.equipo || '-'}`,
-      `Marca: ${record?.marca || '-'}`,
-      `Serial: ${record?.serial || '-'}`,
-      `Revisión: ${record?.revision || '-'}`,
-      `Mantenimiento: ${record?.mantenimiento || '-'}`,
-      `Limpieza: ${record?.limpieza || '-'}`,
-      `Calibración: ${record?.calibracion || '-'}`,
-      `Notas: ${record?.notasDiagnostico || '-'}`,
-    ].join('\n');
+    const ready = equipmentStatus(record, remisionData) === 'LISTO';
+    const message = SERVICE_MESSAGE(record, loadedId, ready);
 
     try {
       navigateWhatsAppWindow(null, message, remisionData?.celular);
@@ -251,7 +242,9 @@ export default function ServicioTecnico() {
                       handleUpdate(rec.id, rec);
                     }}
                     onSendWhatsApp={handleSendWhatsApp}
-                    whatsappLabel="Enviar estado por WhatsApp"
+                    whatsappLabel={equipmentStatus(rec, remisionData) === 'LISTO'
+                      ? 'Enviar aviso de equipo listo por WhatsApp'
+                      : 'Enviar estado por WhatsApp'}
                     error={error}
                     readOnly={busy || equipmentStatus(rec, remisionData) !== 'EN_SERVICIO'}
                     onMarkReady={() => handleMarkReady(rec)}

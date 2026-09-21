@@ -15,7 +15,7 @@ const records = [
   { id: 1, equipo: 'Tensiometro digital', marca: 'Prueba A', serial: 'LOCAL-1', valor: 15000, brazalete: 'OK', pilas: 'OK', revision: 'Ok', mantenimiento: 'Ok', limpieza: 'Ok', calibracion: 'Ok', notasDiagnostico: '', readyAt: null, dadoBaja: false },
   { id: 2, equipo: 'Nebulizador', marca: 'Prueba B', serial: 'LOCAL-2', valor: 15000, brazalete: 'OK', pilas: 'N/A', revision: 'Ok', mantenimiento: 'Ok', limpieza: 'Ok', calibracion: 'Ok', notasDiagnostico: '', readyAt, dadoBaja: false },
 ];
-const reminders = [{recordId: 2, remissionId: 'PRUEBA-1', equipo: 'Nebulizador', marca: 'Prueba B', serial: 'LOCAL-2', readyAt, daysReady: 16}];
+const reminders = [{recordId: 2, remissionId: 'PRUEBA-1', equipo: 'Nebulizador', marca: 'Prueba B', serial: 'LOCAL-2', readyAt, daysReady: 16, reminderDay: 15}];
 const expenses = [
   {id: 1, description: 'Transporte de prueba', amount: 12000.50, paymentMethod: 'Efectivo', expenseDate: '2026-09-18T15:00:00'},
   {id: 2, description: 'Insumos de prueba', amount: 8000.25, paymentMethod: 'Tarjeta', expenseDate: '2026-09-19T23:59:59'},
@@ -35,10 +35,6 @@ axiosClient.defaults.adapter = async config => {
     const id = Number(path.split('/').at(-2));
     const record = records.find(r => r.id === id);
     record.readyAt ||= new Date().toISOString().slice(0,-1); data = record;
-  } else if (path.endsWith('/whatsapp/reminder')) {
-    const id = Number(path.split('/').at(-3));
-    const index = reminders.findIndex(r => r.recordId === id);
-    if (index >= 0) reminders.splice(index,1); data = {};
   } else if (path.endsWith('/technical-records')) {
     data = records;
   } else if (config.method === 'put' && path.includes('/technical-records/')) {

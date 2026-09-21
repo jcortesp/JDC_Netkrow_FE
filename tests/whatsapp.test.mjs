@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePhone, buildWhatsAppWebUrl, navigateWhatsAppWindow, READY_MESSAGE, REMINDER_MESSAGE } from '../src/utils/whatsapp.ts';
+import { normalizePhone, buildWhatsAppWebUrl, navigateWhatsAppWindow, SERVICE_MESSAGE, REMINDER_MESSAGE } from '../src/utils/whatsapp.ts';
 
 test('normalizes Colombian phones and preserves international prefixes', () => {
   assert.equal(normalizePhone('300 123 4567'), '573001234567');
@@ -10,11 +10,11 @@ test('normalizes Colombian phones and preserves international prefixes', () => {
 });
 test('encodes accents and real line breaks in desktop messages', () => {
   Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'Desktop' }, configurable: true });
-  const message = READY_MESSAGE('R-1');
+  const message = SERVICE_MESSAGE({ equipo: 'Tensiómetro' }, 'R-1', true);
   const url = new URL(buildWhatsAppWebUrl(message, '3001234567'));
   assert.equal(url.hostname, 'web.whatsapp.com');
   assert.equal(url.searchParams.get('text'), message);
-  assert.ok(message.includes('\nRemisión: R-1.'));
+  assert.ok(message.includes('\nRemisión: R-1'));
 });
 test('preserves mobile WhatsApp support', () => {
   Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'iPhone' }, configurable: true });
@@ -40,4 +40,17 @@ test('reminder includes remission, elapsed days and equipment', () => {
   assert.match(message, /Tensiómetro/);
   assert.match(message, /Serial: ABC-1/);
   assert.doesNotMatch(message, /desde el último aviso/);
+});
+test('ready service message clearly says the equipment can be collected', () => {
+  const message = SERVICE_MESSAGE({ equipo: 'Tensiómetro', marca: 'Omron', serial: 'ABC-1', revision: 'OK' }, 'R-2', true);
+  assert.match(message, /equipo está listo para recoger/);
+  assert.match(message, /Estos son los datos del servicio/);
+  assert.match(message, /Remisión: R-2/);
+  assert.match(message, /Equipo: Tensiómetro/);
+  assert.match(message, /Puedes pasar a recogerlo/);
+});
+test('in-service updates do not claim the equipment is ready', () => {
+  const message = SERVICE_MESSAGE({ equipo: 'Tensiómetro' }, 'R-3', false);
+  assert.match(message, /Estado actual: En servicio/);
+  assert.doesNotMatch(message, /está listo para recoger/);
 });

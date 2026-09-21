@@ -11,7 +11,7 @@ Currently, two official plugins are available:
 
 En Servicio Técnico, cada equipo empieza «En servicio». Para usar «Listo para entrega», Brazalete, Revisión, Mantenimiento, Limpieza y Calibración deben estar en OK; Pilas puede estar en OK, NA o N/A. Si falta alguna condición, la pantalla indica cuáles campos deben corregirse. Esta acción registra su fecha UTC una sola vez y bloquea el botón y los campos, tanto en pantalla como en la API. No hay reapertura en este flujo.
 
-«Enviar estado por WhatsApp» está disponible de manera independiente y no cambia estados ni fechas. Los recordatorios son por equipo: aparecen a los 15 días completos desde que quedó listo, aunque nunca se haya enviado un WhatsApp. Después de enviar un recordatorio, «Ya lo envié» registra su fecha; el siguiente estará disponible 15 días después. Abrir o cancelar un chat no registra el envío.
+«Enviar estado por WhatsApp» está disponible de manera independiente y no cambia estados ni fechas. Cuando el equipo está listo, el aviso indica claramente que puede recogerse e incluye los datos del servicio. Los recordatorios son por equipo y se calculan únicamente desde la fecha en que quedó listo: el reporte muestra el ciclo de 15, 30, 45 días y así sucesivamente mientras la remisión no se entregue. No se registra ni se solicita una confirmación manual de envío.
 
 La entrega sigue siendo de toda la remisión, incluso si contiene equipos en servicio: todos pasan a entregados y salen del reporte. Los equipos dados de baja conservan ese estado. Dar de baja la remisión también termina el seguimiento. Las garantías abiertas siguen las mismas reglas de equipos; cerrarlas excluye sus equipos.
 
