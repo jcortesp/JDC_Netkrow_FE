@@ -224,7 +224,7 @@ export default function ServicioTecnico() {
                   </Alert>
                   {equipmentStatus(rec, remisionData) === 'EN_SERVICIO' && (
                     <Typography variant="body2" sx={{ mb: 2 }}>
-                      Para marcar listo: Brazalete, Revisión, Mantenimiento, Limpieza y Calibración deben estar en OK; Pilas puede estar en OK o N/A. Al hacerlo, los campos quedarán bloqueados.
+                      Para marcar listo: Revisión, Mantenimiento, Limpieza y Calibración deben estar en OK; Pilas puede estar en OK, Cambio o N/A y Brazalete puede estar en cualquier estado. Al hacerlo, los campos quedarán bloqueados.
                       {dirtyRecords.has(rec.id) && ' Hay cambios sin guardar.'}
                     </Typography>
                   )}

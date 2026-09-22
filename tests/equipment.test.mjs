@@ -10,12 +10,15 @@ test('unsaved or incomplete diagnosis cannot be marked ready', () => {
   assert.equal(canMarkReady(complete, null, true), false);
   assert.equal(canMarkReady({...complete, revision: 'Pendiente'}), false);
 });
-test('bracelet must be OK and batteries accept OK, NA or N/A', () => {
-  assert.equal(canMarkReady({...complete, brazalete: 'N/A'}), false);
+test('bracelet accepts any state and batteries accept OK, Cambio, NA or N/A', () => {
+  assert.equal(canMarkReady({...complete, brazalete: 'Fuga'}), true);
+  assert.equal(canMarkReady({...complete, brazalete: 'Desgaste'}), true);
+  assert.equal(canMarkReady({...complete, brazalete: 'N/A'}), true);
   assert.equal(canMarkReady({...complete, pilas: 'OK'}), true);
+  assert.equal(canMarkReady({...complete, pilas: 'Cambio'}), true);
   assert.equal(canMarkReady({...complete, pilas: 'NA'}), true);
   assert.equal(canMarkReady({...complete, pilas: 'N/A'}), true);
-  assert.deepEqual(readyValidationIssues({...complete, pilas: 'Pendiente'}), ['Pilas debe estar en OK o N/A']);
+  assert.deepEqual(readyValidationIssues({...complete, pilas: 'Pendiente'}), ['Pilas debe estar en OK, Cambio o N/A']);
 });
 test('ready equipment stays locked even when every diagnosis is OK', () => {
   const ready={...complete,readyAt:'2026-09-19T12:00:00'};

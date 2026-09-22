@@ -20,8 +20,7 @@ const normalizedState = (value?: string) => String(value || '').trim().toUpperCa
 
 export function readyValidationIssues(record: EquipmentState) {
   const issues: string[] = [];
-  if (normalizedState(record.brazalete) !== 'OK') issues.push('Brazalete debe estar en OK');
-  if (!['OK', 'NA', 'N/A'].includes(normalizedState(record.pilas))) issues.push('Pilas debe estar en OK o N/A');
+  if (!['OK', 'CAMBIO', 'NA', 'N/A'].includes(normalizedState(record.pilas))) issues.push('Pilas debe estar en OK, Cambio o N/A');
   if (normalizedState(record.revision) !== 'OK') issues.push('Revisión debe estar en OK');
   if (normalizedState(record.mantenimiento) !== 'OK') issues.push('Mantenimiento debe estar en OK');
   if (normalizedState(record.limpieza) !== 'OK') issues.push('Limpieza debe estar en OK');

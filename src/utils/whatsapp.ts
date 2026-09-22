@@ -2,6 +2,8 @@ interface ServiceMessageRecord {
   equipo?: string | null;
   marca?: string | null;
   serial?: string | null;
+  brazalete?: string | null;
+  pilas?: string | null;
   revision?: string | null;
   mantenimiento?: string | null;
   limpieza?: string | null;
@@ -9,23 +11,60 @@ interface ServiceMessageRecord {
   notasDiagnostico?: string | null;
 }
 
-export const SERVICE_MESSAGE = (record: ServiceMessageRecord, remissionId: string, ready: boolean) => [
-  ready
-    ? 'Hola, te informamos que tu equipo está listo para recoger.'
-    : 'Hola, te compartimos una actualización del servicio técnico de tu equipo.',
-  ready ? '' : 'Estado actual: En servicio.',
+const normalizedState = (value?: string | null) => String(value || '').trim().toUpperCase();
+
+const serviceDetails = (record: ServiceMessageRecord, remissionId: string) => [
   'Estos son los datos del servicio:',
   `Remisión: ${remissionId || '-'}`,
   `Equipo: ${record.equipo || '-'}`,
   `Marca: ${record.marca || '-'}`,
   `Serial: ${record.serial || '-'}`,
+  `Brazalete: ${record.brazalete || '-'}`,
+  `Pilas: ${record.pilas || '-'}`,
   `Revisión: ${record.revision || '-'}`,
   `Mantenimiento: ${record.mantenimiento || '-'}`,
   `Limpieza: ${record.limpieza || '-'}`,
   `Calibración: ${record.calibracion || '-'}`,
   `Notas: ${record.notasDiagnostico || '-'}`,
-  ready ? 'Puedes pasar a recogerlo. Gracias.' : '',
-].filter(Boolean).join('\n');
+];
+
+export const SERVICE_MESSAGE = (record: ServiceMessageRecord, remissionId: string, ready: boolean) => {
+  const braceletState = normalizedState(record.brazalete);
+  const hasBraceletIssue = braceletState === 'FUGA' || braceletState === 'DESGASTE';
+  const needsBatteryChange = normalizedState(record.pilas) === 'CAMBIO';
+
+  if (hasBraceletIssue) {
+    const issue = braceletState === 'FUGA' ? 'una fuga' : 'desgaste';
+    return [
+      'Hola, te compartimos una actualización del servicio técnico de tu equipo.',
+      `El brazalete actual presenta ${issue} que impide repararlo de forma segura. Por tu seguridad médica, este componente no se puede parchar ni reparar.`,
+      'El brazalete nuevo tiene un costo adicional de $50.000.',
+      ...(needsBatteryChange ? ['Además, el equipo requiere cambio de pilas.'] : []),
+      'Quedamos atentos a tu autorización para proceder con el cambio del brazalete.',
+      '',
+      ...serviceDetails(record, remissionId),
+    ].join('\n');
+  }
+
+  if (needsBatteryChange) {
+    return [
+      'Hola, te informamos que tu equipo está listo para recoger.',
+      'Ten en cuenta que el equipo requiere cambio de pilas.',
+      '',
+      ...serviceDetails(record, remissionId),
+      'Puedes pasar a recogerlo. Gracias.',
+    ].join('\n');
+  }
+
+  return [
+    ready
+      ? 'Hola, te informamos que tu equipo está listo para recoger.'
+      : 'Hola, te compartimos una actualización del servicio técnico de tu equipo.',
+    ready ? '' : 'Estado actual: En servicio.',
+    ...serviceDetails(record, remissionId),
+    ready ? 'Puedes pasar a recogerlo. Gracias.' : '',
+  ].filter(Boolean).join('\n');
+};
 
 export const REMINDER_MESSAGE = (record: {
   remissionId: string;

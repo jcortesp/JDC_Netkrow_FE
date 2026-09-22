@@ -8,6 +8,14 @@ import {
   Stack
 } from '@mui/material';
 
+const serviceFields = ['revision', 'mantenimiento', 'limpieza', 'calibracion'] as const;
+const serviceLabels: Record<(typeof serviceFields)[number], string> = {
+  revision: 'Revisión',
+  mantenimiento: 'Mantenimiento',
+  limpieza: 'Limpieza',
+  calibracion: 'Calibración',
+};
+
 interface TechnicalRecordValues {
   [field: string]: string | number;
   equipo: string;
@@ -141,90 +149,94 @@ export default function TechnicalRecordForm({
           InputLabelProps={{ shrink: true }}
         />
 
-        <Typography variant="subtitle1">Diagnóstico</Typography>
+        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}>
+          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Diagnóstico</Typography>
+          <Stack spacing={2}>
+            <TextField
+              select
+              label="Brazalete"
+              name="brazalete"
+              value={form.brazalete}
+              onChange={onChange}
+              fullWidth
+              disabled={readOnly}
+              sx={borderStyle(form.brazalete)}
+              InputLabelProps={{ shrink: true }}
+            >
+              {['OK', 'Fuga', 'Desgaste', 'N/A'].map(v => (
+                <MenuItem key={v} value={v}>
+                  {v}
+                </MenuItem>
+              ))}
+            </TextField>
 
-        {/* Brazalete */}
-        <TextField
-          select
-          label="Brazalete"
-          name="brazalete"
-          value={form.brazalete}
-          onChange={onChange}
-          fullWidth
-          disabled={readOnly}
-          sx={borderStyle(form.brazalete)}
-          InputLabelProps={{ shrink: true }}
-        >
-          {['OK', 'Fuga', 'Desgaste', 'N/A'].map(v => (
-            <MenuItem key={v} value={v}>
-              {v}
-            </MenuItem>
-          ))}
-        </TextField>
+            <TextField
+              select
+              label="Pilas"
+              name="pilas"
+              value={form.pilas}
+              onChange={onChange}
+              fullWidth
+              disabled={readOnly}
+              sx={borderStyle(form.pilas)}
+              InputLabelProps={{ shrink: true }}
+            >
+              {[
+                'OK',
+                'Cambio',
+                'Recargable',
+                'Carbon',
+                'Adaptador OK',
+                'Adaptador dañado',
+                'N/A'
+              ].map(v => (
+                <MenuItem key={v} value={v}>
+                  {v}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+        </Box>
 
-        {/* Pilas */}
-        <TextField
-          select
-          label="Pilas"
-          name="pilas"
-          value={form.pilas}
-          onChange={onChange}
-          fullWidth
-          disabled={readOnly}
-          sx={borderStyle(form.pilas)}
-          InputLabelProps={{ shrink: true }}
-        >
-          {[
-            'OK',
-            'Cambio',
-            'Recargable',
-            'Carbon',
-            'Adaptador OK',
-            'Adaptador dañado',
-            'N/A'
-          ].map(v => (
-            <MenuItem key={v} value={v}>
-              {v}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        {/* Revisión, mantenimiento, limpieza, calibración */}
-        {['revision','mantenimiento','limpieza','calibracion'].map(field => (
-          <TextField
-            key={field}
-            select
-            label={field.charAt(0).toUpperCase() + field.slice(1)}
-            name={field}
-            value={form[field]}
-            onChange={onChange}
-            fullWidth
-            disabled={readOnly}
-            sx={borderStyle(form[field])}
-            InputLabelProps={{ shrink: true }}
-          >
-            {['Ok', 'Pendiente'].map(v => (
-              <MenuItem key={v} value={v}>
-                {v}
-              </MenuItem>
+        <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}>
+          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Servicio</Typography>
+          <Stack spacing={2}>
+            {serviceFields.map(field => (
+              <TextField
+                key={field}
+                select
+                label={serviceLabels[field]}
+                name={field}
+                value={form[field]}
+                onChange={onChange}
+                fullWidth
+                disabled={readOnly}
+                sx={borderStyle(form[field])}
+                InputLabelProps={{ shrink: true }}
+              >
+                {['Ok', 'Pendiente'].map(v => (
+                  <MenuItem key={v} value={v}>
+                    {v}
+                  </MenuItem>
+                ))}
+              </TextField>
             ))}
-          </TextField>
-        ))}
 
-        {/* Notas */}
-        <TextField
-          label="Notas Diagnóstico"
-          name="notasDiagnostico"
-          value={form.notasDiagnostico}
-          onChange={onChange}
-          fullWidth
-          multiline
-          rows={3}
-          disabled={readOnly}
-          inputProps={{ maxLength: 100 }}
-          sx={borderStyle(form.notasDiagnostico)}
-          InputLabelProps={{ shrink: true }}
-        />
+            <TextField
+              label="Notas"
+              name="notasDiagnostico"
+              value={form.notasDiagnostico}
+              onChange={onChange}
+              fullWidth
+              multiline
+              rows={3}
+              disabled={readOnly}
+              inputProps={{ maxLength: 100 }}
+              sx={borderStyle(form.notasDiagnostico)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Stack>
+        </Box>
 
         {!readOnly && (
           <Button type="submit" variant="contained">
